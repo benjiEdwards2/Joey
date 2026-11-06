@@ -1,23 +1,13 @@
-{# Where to watch - a deferred part since F2 (2026-10-12): the Jellyseerr title body's AU providers; waiting, "Loading". #}
-{% if tv_mode(request) %}{# JY-270: words only on the TV (no off-site links), below the cast row #}{% if film.providers %}
+{# Where to watch - a deferred part since F2 (2026-10-12): the Jellyseerr title body's AU providers. JY-286 (B.'s pick A,
+   Q2 default A): the streaming services as logos only, never their names as text - each logo's alt is the service's
+   name (the letters tile when it has none). Web (film, show, season, episode): a link to JustWatch as the chip was (none
+   on the guest front), under the cast. TV (JY-270): the same logos, no link (no off-site links), below the cast row. #}
+{% set st = film.providers|selectattr("label", "equalto", "Stream")|first if film.providers else none %}
+{% if st and tv_mode(request) %}
 <section class="sec tv-extras tv-providers">
   <h2 class="seclabel">Where to watch</h2>
-  {% for g in film.providers %}<p class="metaline tv-factline"><span class="microlabel">{{ g.label }}</span> {{ g.names|join(" · ") }}</p>{% endfor %}
-</section>{% endif %}
-{% elif film.kind in ("movie", "tv") and not film.episode %}{# JY-286 (JY-281: the show page too) (pick A; Q2 default A: streaming only): logos only under the
-   cast (left column) - each logo's alt is the service's name, a link to JustWatch as the chip was (none on the guest front) #}
-{% set st = film.providers|selectattr("label", "equalto", "Stream")|first if film.providers else none %}
-{% if st %}<div class="provlogos" role="group" aria-label="Where to watch"><span class="microlabel">Stream on</span>
+  <div class="provlogos" role="group" aria-label="Where to watch">{% for p in st["items"] %}<span class="provlogo" title="{{ p.name }}"><img class="prov-logo" src="/img/{{ p.logo or 'none' }}?h=120&amp;t={{ img_letters(p.name)|urlencode }}" alt="{{ p.name }}" loading="lazy" decoding="async" width="40" height="40"></span>{% endfor %}</div>
+</section>
+{% elif st %}<div class="provlogos" role="group" aria-label="Where to watch"><span class="microlabel">Stream on</span>
 {% for p in st["items"] %}{% if st.href %}<a class="provlogo" href="{{ st.href }}" target="_blank" rel="noopener" title="{{ p.name }}">{% else %}<span class="provlogo" title="{{ p.name }}">{% endif %}<img class="prov-logo" src="/img/{{ p.logo or 'none' }}?h=120&amp;t={{ img_letters(p.name)|urlencode }}" alt="{{ p.name }}" loading="lazy" decoding="async" width="40" height="40">{% if st.href %}</a>{% else %}</span>{% endif %}{% endfor %}
 </div>{% endif %}
-{% elif film.providers %}
-<section class="sec">
-  <h2 class="seclabel">Where to watch</h2>
-  {% for g in film.providers %}<div class="chips"><span class="microlabel">{{ g.label }}</span>{% for name in g.names %}{% if g.href %}<a class="chip" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% else %}<span class="chip">{{ name }}</span>{% endif %}{% endfor %}</div>{% endfor %}
-</section>
-{% elif "providers" in film.pending %}
-<section class="sec">
-  <h2 class="seclabel">Where to watch</h2>
-  <p class="metaline">Loading</p>
-</section>
-{% endif %}

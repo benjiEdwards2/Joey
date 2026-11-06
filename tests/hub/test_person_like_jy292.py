@@ -123,3 +123,50 @@ def test_tv_tiles_template_and_pins():
     page = (ROOT / "hub" / "templates" / "media_person.html").read_text(encoding="utf-8")
     before = page.split('class="personlike-wait"', 1)[0]
     assert before.rfind("{% if not tvf %}") > before.rfind("{% endif %}{% endfor %}")   # friends on the TV never load it
+
+
+def test_one_deadline_bounds_a_hung_seerr(monkeypatch):
+    """A hung Seerr (no HTTP status, so no failure is remembered) cannot stall the part: past the deadline the shelf is
+    built from the titles read so far. The fake raises on the third title and moves the clock past the deadline."""
+    from hub import media_discover as md
+    credits = {"cast": [{"id": i, "mediaType": "movie", "title": f"T{i}", "voteCount": 100 - i, "character": "x"}
+                        for i in range(1, 7)]}
+    clock = {"t": 0.0}
+    reads = []
+
+    def meta_get(path, *a, **k):
+        reads.append(path)
+        if len(reads) == 3:
+            clock["t"] += 30                                        # the hung read used up the budget
+            raise TimeoutError(path)
+        return cast(BEN, CY)
+
+    monkeypatch.setattr(media_person, "_cget", lambda path: credits)
+    monkeypatch.setattr(md, "meta_peek", lambda path: None)
+    monkeypatch.setattr(md, "meta_get", meta_get)
+    monkeypatch.setattr(media_person.time, "monotonic", lambda: clock["t"])
+    got = media_person.you_may_like(55, pause=0)
+    assert len(reads) == 3                                          # nothing read after the deadline
+    assert [(p["name"], p["why"]) for p in got] == [("Ben Bloom", "Cast together in 2 films"),
+                                                    ("Cy Crane", "Cast together in 2 films")]
+    clock["t"] = 0.0
+    reads.clear()
+
+    def slow(path, *a, **k):
+        reads.append(path)
+        clock["t"] += 5 if len(reads) < 3 else 30                  # the third read hangs past the deadline
+        return cast(BEN, CY)
+
+    monkeypatch.setattr(md, "meta_get", slow)
+    got = media_person.you_may_like(55, pause=0)
+    assert len(reads) == 3                                          # no read after the deadline
+    assert [(p["name"], p["why"]) for p in got] == [("Ben Bloom", "Cast together in 3 films"),
+                                                    ("Cy Crane", "Cast together in 3 films")]
+
+
+def test_shelf_lines_wrap_past_the_cast_tile_ellipsis():
+    css = (ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    rule = re.search(r"html:not\(\.tv\) \.castsec\.personlike \.likewhy, html:not\(\.tv\) \.castsec\.personlike "
+                     r"\.liketitles \{([^}]*)\}", css)
+    assert rule and "white-space: normal" in rule.group(1) and "line-clamp: 2" in rule.group(1)
+    assert css.index(rule.group(0)) > css.index("html:not(.tv) .castsec.casttiles .castrole {")   # later, same weight

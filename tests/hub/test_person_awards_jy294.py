@@ -59,9 +59,9 @@ def test_person_page_draws_the_carousel_and_folds_the_list(env):
         ("a", "/media/title/movie/603", "tmdb:/hl.jpg", "1 won", "Harbour Lights"),   # credits poster
         ("div", "", "none", "1 won", "Unlinked"), ("a", "/media/title/movie/604", "none", "1 nom", "Other Film")]
     assert cards[0][2] == " is-won" and cards[2][2] == "" and cards[2][4] == ""
-    assert '<span class="awwork-line is-won"><span class="vh">Won: </span>Bafta 2025 · Best Actress in a Leading Role</span>' \
-        in car.replace("BAFTA", "Bafta")
-    assert '<span class="vh">Nominated: </span>Oscars 2025 · Best Actor</span>' in car
+    assert ('<span class="awwork-line is-won">BAFTA 2025 · Best Actress in a Leading Role '
+            '<span class="awwork-word">Won</span></span>') in car                    # the word shows, not only gold
+    assert '<span class="awwork-line">Oscars 2025 · Best Actor <span class="awwork-word">Nominated</span></span>' in car
     assert rest.count('class="awline"') == 4 and 'class="awgroups"' in rest     # the list, folded
     assert car.index('<p class="metaline">2 wins · 4 nominations</p>') < car.index('class="carousel awworks"')
 

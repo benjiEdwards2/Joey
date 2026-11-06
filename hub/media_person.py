@@ -187,6 +187,7 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
 # shelf. The cast of the person's top acting titles (Seerr title bodies through the 6 h meta cache, paced only when a
 # read is cold), co-stars from each title's top billing who share 2+ of those titles. A deferred part: never on render.
 LIKE_TITLES, LIKE_BILLED, LIKE_MIN, LIKE_MAX, LIKE_PAUSE = 10, 15, 2, 12, 0.2
+LIKE_DEADLINE_S = 12   # one wall-clock budget for the part's reads: a hung Seerr cannot stall it 10 x 8 s
 NOT_ACTING = {10763, 10764, 10767}   # TV news, reality, talk: guest spots there are not "cast together"
 SELF_RE = re.compile(r"^(self|himself|herself|themselves)\b", re.I)
 
@@ -209,14 +210,23 @@ def _like_titles(credits) -> list[tuple[str, int, str]]:
     return [(k[0], k[1], v[1]) for k, v in top]
 
 
-def you_may_like(tmdb_id: int, pause: float = LIKE_PAUSE) -> list[dict]:
+def you_may_like(tmdb_id: int, pause: float = LIKE_PAUSE, deadline: float = LIKE_DEADLINE_S) -> list[dict]:
     """[{id, name, ref, href, why, titles}] - co-stars ranked by titles shared, then billing, then name. [] when
-    Seerr is unset / down or nobody shares 2+ titles."""
+    Seerr is unset / down or nobody shares 2+ titles. Past `deadline` seconds no further title is read: the shelf is
+    built from what has been read so far."""
     people: dict[int, dict] = {}
+    stop = time.monotonic() + deadline
     for kind, tid, title in _like_titles(_cget(f"/api/v1/person/{tmdb_id}/combined_credits")):
+        if time.monotonic() >= stop:
+            log.warning("you-may-like: deadline reached, shelf from the titles read so far")
+            break
         path = f"/api/v1/{kind}/{tid}"
         cold = md.meta_peek(path) is md.MISSING
-        body = md.meta_get(path)
+        try:
+            body = md.meta_get(path)
+        except Exception as exc:   # one bad read never stops the shelf
+            log.warning("you-may-like read failed: %s", type(exc).__name__)
+            body = None
         if cold and pause:
             time.sleep(pause)
         cast = ((body.get("credits") or {}).get("cast") if isinstance(body, dict) else None) or []

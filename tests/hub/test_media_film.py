@@ -213,7 +213,9 @@ def test_series_makers_are_creators(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/tv/100"))   # F2: makers is a deferred part (was a timing flake)
-    assert '<div class="microlabel">Created by</div>' in b and ">Cass Creator</span></a>" in b   # media-ux4: cards
+    # JY-317 (B. 2026-11-06, "Stop placing them in circles"): a show's creators are the film's chips, not headshot cards
+    assert '<a class="chip makerchip" href="/media/person/' in b and '<span class="makerchip-role">Creator</span>Cass Creator</a>' in b
+    assert '<div class="microlabel">Created by</div>' not in b and "makercard" not in b
 
 
 def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
@@ -514,16 +516,19 @@ def test_no_tmdb_id_falls_back_to_the_person_find_link(env):
     assert ("Director", "Dee Director", "/media/person/find?name=Dee%20Director") in found
 
 
-def test_series_says_created_by_with_up_to_four_cards(env):
+def test_series_says_created_by_with_up_to_four_chips(env):
+    # JY-317 (B. 2026-11-06, "Stop placing them in circles. For shows and movies."): was up to four headshot cards;
+    # now up to four "Creator" chips, each one link to the person page, as the film's Director / Writer chips
     client, both = env()
     both.seerr.table["/api/v1/tv/100"] = {**SHOW, "createdBy": [
         {"id": 10 + i, "name": f"Maker {chr(65 + i)} Person", "profilePath": f"/m{i}.jpg" if i % 2 == 0 else None}
         for i in range(5)]}
     with client:
-        label, found = cards(hero(main_of(whole(client, "/media/title/tv/100"))))
-    assert label == "Created by" and len(found) == 4
-    assert found[0] == ("/media/person/10", f"/img/tmdb:/m0.jpg?h={media_film.MAKER_H}", None, "Maker A Person")
-    assert found[1] == ("/media/person/11", None, "MB", "Maker B Person")       # initials of the first two words
+        h = hero(main_of(whole(client, "/media/title/tv/100")))
+    found = chips(h)
+    assert len(found) == 4 and found[0] == ("Creator", "Maker A Person", "/media/person/10")
+    assert found[1] == ("Creator", "Maker B Person", "/media/person/11")
+    assert "makerpic" not in h and "makercard" not in h
 
 
 def test_jellyfin_director_without_jellyseerr_still_gets_a_chip(env, monkeypatch):
@@ -563,11 +568,12 @@ def test_film_hero_is_taller_with_a_bigger_poster_and_one_overview(env):
         assert re.search(rule, CSS_ux4_makers), rule
 
 
-def test_show_hero_keeps_its_cards_and_poster_size(env):
+def test_show_hero_keeps_its_poster_size_and_takes_the_film_chips(env):
+    # JY-317 (B. 2026-11-06): was "keeps its cards"; a show's hero now takes the film's maker chips (no headshot cards)
     client, _ = env()
     with client:
         h = hero(main_of(whole(client, "/media/title/tv/100")))
-    assert "tl-movie" not in h and "makerchips" not in h and '<div class="makers">' in h
+    assert "tl-movie" not in h and '<div class="makerchips">' in h and "makercard" not in h
 
 
 def test_film_cast_tile_without_a_photo_shows_initials(env):
@@ -580,9 +586,12 @@ def test_film_cast_tile_without_a_photo_shows_initials(env):
 
 
 def test_tv_mode_film_cast_has_no_casttiles():
+    # JY-283 / JY-317 (2026-11-06): every web cast row is `.casttiles` now; the TV keeps its own branch (tvt.person tiles)
     from pathlib import Path
     tpl = (Path(media_film.__file__).resolve().parent / "templates" / "_film_cast.html").read_text(encoding="utf-8")
-    assert "' casttiles' if film.kind == 'movie' and not tv_mode(request)" in tpl
+    tv, web = tpl.split("{% if tv_mode(request) %}", 1)[1].split("{% elif film.cast %}", 1)
+    assert 'class="sec castsec' not in tv and "tvt.person" in tv
+    assert '<section class="sec castsec casttiles">' in web
 
 
 def test_film_cast_tiles_are_2_3_boxier_and_lead_the_body(env):
@@ -630,10 +639,12 @@ def test_cast_is_circles_and_more_on_joey_is_posters_on_the_web(env):
     hrefs = [h for h in more.split('href="')[1:]]
     assert len(hrefs) == len({h.split('"', 1)[0] for h in hrefs})                    # each title once
     css = (Path(media_film.__file__).resolve().parent / "static" / "control-surface.css").read_text(encoding="utf-8")
-    assert "html:not(.tv) .castsec .castpic { width: 88px; height: 88px; aspect-ratio: 1; border-radius: 50%;" in css
+    # JY-283 / JY-317 (B. 2026-11-06, "Stop placing them in circles."): the JY-269 88 px circle rule is gone; 2:3 tiles
+    assert "border-radius: 50%" not in "".join(r for r in re.findall(r"html:not\(\.tv\) \.castsec[^{]*\{[^}]*\}", css))
+    assert "html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 4px;" in css
     tpl = Path(media_film.__file__).resolve().parent / "templates"
     assert 'href="/media/person/{{ c.id }}"' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
-    assert 'castsec webskel' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
+    assert 'castsec casttiles webskel' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
     assert 'moresec webskel' in (tpl / "_film_shelves.html").read_text(encoding="utf-8")
 
 

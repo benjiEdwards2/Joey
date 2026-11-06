@@ -68,9 +68,10 @@ def test_show_and_episode_heroes_keep_the_same_order(env):
         show = hero(main_of(whole(client, "/media/item/ser1")))
         ep = hero(main_of(whole(client, "/media/item/ep3")))
     # JY-269 P1 (2026-10-30): on the web Follow sits in the row's "…" menu, so it now comes before the makers
-    assert order(show, '<h1 class="hero-detail-title">', 'class="facts-line"', 'id="status-line"', ROW,
-                 'class="followform"', '<div class="makers">')
-    assert "Created by" in show.split(ROW, 1)[1]
+    # JY-317 (B. 2026-11-06, "Stop placing them in circles. For shows and movies."): a show's makers are the film's
+    # chips under the facts line, above the status line and the row (as on the film page), not cards under the row
+    assert order(show, '<h1 class="hero-detail-title">', 'class="facts-line"', '<div class="makerchips">', 'id="status-line"', ROW)
+    assert '<span class="makerchip-role">Creator</span>' in show.split(ROW, 1)[0] and "Created by" not in show
     # an episode: its code / name leads the title; its overview is "the rest", under the row and the makers
     # JY-269 P1 (2026-10-30): on the web the overview is the hero synopsis, above the row
     # JY-315 (2026-11-04, pick A): the episode title is the h1 and the synopsis sits under the button row

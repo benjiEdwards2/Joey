@@ -288,12 +288,13 @@ def test_created_by_row_follows_a_creator_as_a_tv_maker(son_env):
     seed_creator(both)
     with client:
         page = whole(client, "/media/title/tv/100")
-        row = page.split('<div class="microlabel">Created by</div>', 1)[1].split('<div class="makers', 1)[0]
+        # JY-317 (2026-11-06): the Created by chips, then the creators' Follow buttons in the makers block under them
+        row = page.split('<div class="makerchips">', 1)[1].split('<div class="makerchips makers-directors', 1)[0]
         assert ('<form method="post" hx-swap="innerHTML show:none" action="/media/follow/person/77"><input type="hidden" name="back" '
                 'value="/media/title/tv/100"><input type="hidden" name="name" value="Cass Creator">'
                 '<input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">'
                 'Follow Cass Creator</button></form>') in row
-        assert '<a class="makercard" href="/media/person/77">' in row          # the card itself stays the person link
+        assert '<a class="chip makerchip" href="/media/person/77">' in row     # the chip (JY-317, was the card) stays the person link
         assert "Follow No Id Writer" not in row                               # no TMDB id, nothing to follow
         r = client.post("/media/follow/person/77", data={"back": "/media/title/tv/100", "tv": "1"}, follow_redirects=False)
         assert r.headers["location"] == "/media/title/tv/100?follow=creator"

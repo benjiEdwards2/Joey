@@ -172,3 +172,15 @@ def test_season_names_use_the_seasons_id_not_its_number():
                {"id": "b", "number": 2, "episodes": [{"people_names": ["B"]}]}]
     item = {"kind": "season", "id": "a", "season_no": 2}
     assert media_film.season_names(item, seasons) == {"A"}
+
+
+# ---- round 2 (B. 2026-11-06, Sweep 34): one seasons row (the chips), the episodes under it, 2:3 cast ----
+
+def test_round2_season_chips_are_the_one_seasons_row_with_episodes_under(env, season, monkeypatch):
+    with_cast(monkeypatch, CAST[:3])
+    client, _ = env()
+    with client:
+        b = main_of(client.get("/media/item/sea1").text)
+    assert b.count('<nav class="tl-chips" aria-label="Seasons">') == 1 and "seasonseg" not in b
+    assert b.index('class="tl-chips"') < b.index('class="tl-track"')
+    assert 'class="sec castsec casttiles"' in b

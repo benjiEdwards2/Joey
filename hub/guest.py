@@ -109,7 +109,8 @@ _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
 GUEST: tuple = (
     *_each("GET", *_MOVIES_TV),
     *_each("GET", "/media/diary", "/media/history"),   # Diary (+ its To rate, JY-298; /media/history redirects there) (Q18); the play log stays PRIVATE
-    *_each("GET", "/media/discover", "/media/discover/search", "/media/discover/service/{provider_id}"),
+    *_each("GET", "/media/discover", "/media/discover/search", "/media/discover/service/{provider_id}",
+           "/media/discover/all"),   # JY-303: the See all grid (request chips, no watchlist)
     *_each("GET", "/media/title/{kind}/{tmdb_id}", "/media/title/{kind}/{tmdb_id}/part/{name}",
            "/media/title/tv/{tmdb_id}/season/{n}"),
     *_each("GET", "/media/item/{jf_id}", "/media/item/{jf_id}/part/{name}", "/media/person/{person_id}",

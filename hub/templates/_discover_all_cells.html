@@ -1,0 +1,8 @@
+{# JY-303: the See all grid's posters (the page's #see-grid, and the Load more partial). Friends: the request grid's
+   cells; B.: the Discover cards. The first poster a Load more adds carries data-more-first (the page / tv.js focus it);
+   the partial also brings the next Load more (out of band). #}
+{% from "_guest_discover_cell.html" import req_cell %}
+{% from "_discover_item.html" import item %}
+{% set tvm = tv_mode(request) %}
+{% for r in rows %}{% set fm = first > 1 and loop.first %}{% if on_media %}{{ req_cell(r, tvm, fm) }}{% else %}{{ item(r, wl_keys, fm) }}{% endif %}{% endfor %}
+{% if first > 1 %}{% include "_discover_all_more.html" %}{% endif %}

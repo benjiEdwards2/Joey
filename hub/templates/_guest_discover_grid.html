@@ -4,42 +4,22 @@
    which carries the same Request block. The chip's id lets the panel's answer update it in place (hx-swap-oob).
    Shared by the page and the search partial (/media/discover/search swaps the whole #discover-grid). data-q is the
    query the grid shows (tv.js, JY-194: Enter does not search again for the query already shown). #}
-{% from "_poster.html" import poster %}
+{% from "_guest_discover_cell.html" import req_cell %}
 {% set tvm = tv_mode(request) %}
 <div id="discover-grid" class="reqgrid-wrap" data-q="{{ q }}">
-  <h2 class="seclabel">{{ "Results" if q else "Discover" }} · {{ rows | length }}</h2>
+  {# JY-303: no query - See all opens the full grid (Trending first, filters and Load more) #}
+  <div class="sechead"><h2 class="seclabel">{{ "Results" if q else "Discover" }} · {{ rows | length }}</h2>{% if not q and rows %}<a class="seeall" href="/media/discover/all?shelf=trending">See all</a>{% endif %}</div>
   {% if note %}<p class="metaline">{{ note }}</p>{% endif %}
   {% if rows %}
   <div class="poster-grid reqgrid">
-    {% for r in rows %}
-    {% if r.kind == "person" %}
-    {# JY-270 P1: a person result opens the person page (no request panel, no state chip) #}
-    <div class="card-cell">
-      <a class="card-poster rowlink" href="{{ r.href }}">
-        <span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span>
-        <span class="row-title">{{ r.title }}</span>
-        <span class="row-meta">Person</span>
-      </a>
-    </div>
-    {% else %}
-    {% set base = "/media/title/" ~ r.kind ~ "/" ~ r.tmdb_id %}
-    <div class="card-cell">
-      <a class="card-poster rowlink" href="{{ base }}" hx-get="{{ base }}/request?panel=1" hx-target="#req-panel" hx-swap="innerHTML" data-req-open aria-haspopup="dialog">
-        {# JY-259 phase 3 (Q5 A): on the TV the state is a band under the art (tv.css), and "In library" reads "On Joey" #}
-        <span class="card-pic">{{ poster(r.poster, r.title, 240) }}<span id="chip-{{ r.kind }}-{{ r.tmdb_id }}" class="reqchip reqchip-{{ r.req_state }}">{{ "On Joey" if tvm and r.req_state == "lib" else r.chip }}</span></span>
-        <span class="row-title">{{ r.title }}</span>
-        <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}{{ "TV" if r.kind == "tv" else "Film" }}</span>
-      </a>
-    </div>
-    {% endif %}
-    {% endfor %}
+    {% for r in rows %}{{ req_cell(r, tvm) }}{% endfor %}
   </div>
   {% endif %}
   {# JY-270 P1: TV only, no query - Upcoming films / Upcoming TV in the TV tile kit (a failed or empty shelf is absent) #}
   {% if tvm and not q and upcoming %}{% from "_tv_tile.html" import request as tv_request %}
   {% for s in upcoming %}
   <section class="sec tv-soon" data-shelf="{{ s.id }}">
-    <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
+    <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2><a class="seeall" href="/media/discover/all?shelf={{ s.id }}">See all</a></div>
     <div class="carousel tvt-row">{% for i in s["items"] %}{{ tv_request(i) }}{% endfor %}</div>
   </section>
   {% endfor %}

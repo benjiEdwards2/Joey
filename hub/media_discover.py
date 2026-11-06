@@ -17,7 +17,7 @@ import time
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlencode
 
 import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_discover.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -471,6 +471,9 @@ SERVICE_TTL = 6 * 3600     # a service page's shelves
 NEW_DAYS = 30              # "New this month": released in the last NEW_DAYS days
 TOP_VOTES = 200            # "Top rated" ignores titles with fewer TMDB votes than this
 SERVICE_SHELVES = ("Popular films", "Popular TV", "New this month", "Top rated")
+# JY-303: each service shelf's "See all" -> the grid's (kind, sort), with service=<id>
+SERVICE_SEE = {"Popular films": ("movie", "popular"), "Popular TV": ("tv", "popular"), "New this month": ("", "newest"),
+               "Top rated": ("", "rated")}
 
 
 def norm_provider(name) -> str:
@@ -541,15 +544,16 @@ def _service_paths(pid: int, today: date) -> dict[str, list[tuple[str, str, str]
     return {title: [(path, kind, f"svc:{pid}:{title}:{kind}") for path, kind in rows] for title, rows in paths.items()}
 
 
-def _interleave(lists: list) -> list[dict] | None:
-    """Films and TV alternating (each list keeps its own order), ROW_MAX long; None only when every read failed."""
+def _interleave(lists: list, cap: int | None = ROW_MAX) -> list[dict] | None:
+    """Films and TV alternating (each list keeps its own order), `cap` long (None: all); None only when every read
+    failed."""
     if all(rows is None for rows in lists):
         return None
     lists = [rows or [] for rows in lists]
     out = []
     for i in range(max((len(r) for r in lists), default=0)):
         out += [r[i] for r in lists if i < len(r)]
-    return out[:ROW_MAX]
+    return out[:cap] if cap is not None else out
 
 
 def service_shelves(pid: int, today: date | None = None) -> list[dict]:
@@ -563,7 +567,8 @@ def service_shelves(pid: int, today: date | None = None) -> list[dict]:
     def oldest(t):
         ages = [got[pk][1] for pk in paths[t] if got[pk][1] is not None]
         return min(ages) if ages else None
-    return [{"title": _aged(t, oldest(t)), "rows": _interleave([got[pk][0] for pk in paths[t]])}
+    return [{"title": _aged(t, oldest(t)), "rows": _interleave([got[pk][0] for pk in paths[t]]),
+             "see": see_href({"kind": SERVICE_SEE[t][0], "sort": SERVICE_SEE[t][1], "service": pid})}
             for t in SERVICE_SHELVES]
 
 
@@ -596,6 +601,208 @@ def service_page(request: Request, provider_id: int):
         return ctx
 
     return _page(request, "media_service.html", build)
+
+
+# ---- See all (JY-303 phase 1, B. 2026-11-06 picker: PUSH, rec B phased) ----
+# Every Discover / service shelf's "See all" opens ONE grid page with a filter bar (Films / TV, Genre, Year, Sort,
+# Service, Hide what is on Joey) and Load more (Seerr `?page=N`, 20 a page). An unfiltered preset reads the shelf's own
+# path (page 1 = the shelf's titles); anything else reads /discover/movies|tv with the service pages' parameters plus
+# `genre`. Films & TV with a filter reads both kinds and alternates them. Reads wait SHELF_TIMEOUT, are kept CACHE_TTL
+# per path, and a failure is remembered FAIL_TTL (E1): the page never blocks and never 500s.
+
+SEE_ALL = "/media/discover/all"
+MAX_PAGE = 500      # TMDB answers at most 500 pages
+FULL_PAGES = 10     # a full load of ?page=N re-reads pages 1..N, at most this many
+GENRE_TTL = 24 * 3600
+KINDS = (("", "Films & TV"), ("movie", "Films"), ("tv", "TV"))
+SORTS = (("trending", "Trending"), ("popular", "Popular"), ("rated", "Top rated"), ("newest", "Newest"),
+         ("soon", "Coming soon"))
+PRESETS = {"trending": ("", "trending"), "movies": ("movie", "popular"), "tv": ("tv", "popular"),
+           "movies-soon": ("movie", "soon"), "tv-soon": ("tv", "soon")}
+PRESET_PATHS = {PRESETS[s[0]]: (s[2], s[3]) for s in SHELVES}   # (kind, sort) -> the shelf's (path, kind hint)
+SORT_WORDS = {"popular": "Popular", "rated": "Top rated", "newest": "Newest", "soon": "Upcoming"}
+KIND_WORDS = {"": "films & TV", "movie": "films", "tv": "TV"}
+
+
+def _posint(v) -> int | None:
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def genres(kind: str) -> list[dict] | None:
+    """Seerr's genre list for a kind ("movie" | "tv"): [{id, name}], or None when it can't be read (no list kept)."""
+    body = meta_get(f"/api/v1/genres/{kind}", ttl=GENRE_TTL, timeout=SHELF_TIMEOUT, stale_on_fail=True)
+    if not isinstance(body, list):
+        return None
+    out = [{"id": g["id"], "name": str(g.get("name") or "").strip()[:60]} for g in body
+           if isinstance(g, dict) and isinstance(g.get("id"), int) and not isinstance(g.get("id"), bool)
+           and g["id"] > 0 and str(g.get("name") or "").strip()]
+    return out or None
+
+
+def see_filters(shelf: str = "", kind=None, sort=None, genre=None, year=None, service=None, hide="",
+                today: date | None = None) -> dict:
+    """The query -> clean filters. A parameter that is absent takes the shelf's preset; a bad value falls back."""
+    today = today or date.today()
+    pk, ps = PRESETS.get(shelf, PRESETS["trending"])
+    kind = pk if kind is None else kind
+    kind = kind if kind in dict(KINDS) else ""
+    sort = ps if sort is None else sort
+    sort = sort if sort in dict(SORTS) else "popular"
+    y = _posint(year)
+    f = {"kind": kind, "sort": sort, "genre": _posint(genre) if kind else None,
+         "year": y if y is not None and 1900 <= y <= today.year + 3 else None,
+         "service": _posint(service), "hide": hide == "1"}
+    if f["sort"] == "trending" and (f["kind"] or f["genre"] or f["year"] or f["service"]):
+        f["sort"] = "popular"   # Seerr's trending takes no filter
+    return f
+
+
+def see_href(f: dict, page: int = 1, more: bool = False) -> str:
+    """The grid URL for filters `f` (every filter explicit, so no shelf preset applies again)."""
+    q: dict = {"kind": f.get("kind", ""), "sort": f.get("sort", "popular")}
+    for k in ("genre", "year", "service"):
+        if f.get(k):
+            q[k] = f[k]
+    if f.get("hide"):
+        q["hide"] = "1"
+    if page > 1:
+        q["page"] = page
+    if more:
+        q["more"] = "1"
+    return f"{SEE_ALL}?{urlencode(q)}"
+
+
+def _discover_path(kind: str, f: dict, page: int, today: date) -> str:
+    movie = kind == "movie"
+    dkey, dsort = ("primaryReleaseDate", "primary_release_date") if movie else ("firstAirDate", "first_air_date")
+    gte = lte = None
+    if f["year"]:
+        gte, lte = f"{f['year']}-01-01", f"{f['year']}-12-31"
+    q = [f"page={page}"]
+    if f["sort"] == "rated":
+        q += ["sortBy=vote_average.desc", f"voteCountGte={TOP_VOTES}"]
+    elif f["sort"] == "newest":
+        q.append(f"sortBy={dsort}.desc")
+        lte = min(lte or today.isoformat(), today.isoformat())
+    else:   # popular, soon (Seerr's own Upcoming: from today, by popularity)
+        q.append("sortBy=popularity.desc")
+        if f["sort"] == "soon":
+            gte = max(gte or today.isoformat(), today.isoformat())
+    if gte:
+        q.append(f"{dkey}Gte={gte}")
+    if lte:
+        q.append(f"{dkey}Lte={lte}")
+    if f["genre"]:
+        q.append(f"genre={f['genre']}")
+    if f["service"]:
+        q.append(f"watchRegion={WATCH_REGION}&watchProviders={f['service']}")
+    return f"/api/v1/discover/{'movies' if movie else 'tv'}?" + "&".join(q)
+
+
+def see_paths(f: dict, page: int, today: date | None = None) -> list[tuple[str, str | None]]:
+    """[(Seerr path, kind hint)] for one grid page: the shelf's own path (+ ?page=N) for an unfiltered preset, else one
+    discover read per kind."""
+    today = today or date.today()
+    preset = PRESET_PATHS.get((f["kind"], f["sort"]))
+    if preset and not (f["genre"] or f["year"] or f["service"]):
+        return [(preset[0] if page == 1 else f"{preset[0]}?page={page}", preset[1])]
+    return [(_discover_path(k, f, page, today), k) for k in ([f["kind"]] if f["kind"] else ["movie", "tv"])]
+
+
+def _see_read(path: str, hint) -> tuple[list[dict] | None, int]:
+    """(rows, totalPages) for one paged read; (None, 0) on a failure (remembered FAIL_TTL)."""
+    key = f"see:{path}"
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
+    if _recently_failed(key):
+        return None, 0
+    body = _get(path, SHELF_TIMEOUT)
+    if isinstance(body, dict) and isinstance(body.get("results"), list):
+        pages = body.get("totalPages")
+        pages = pages if isinstance(pages, int) and not isinstance(pages, bool) else 1
+        got = (_rows(body["results"], hint), max(0, min(pages, MAX_PAGE)))
+        _cache[key] = (time.time(), got)
+        return got
+    _note_failure(key)
+    return None, 0
+
+
+def see_page(f: dict, page: int, today: date | None = None) -> tuple[list[dict] | None, bool]:
+    """(rows, more) for one grid page: rows None when every read failed; more = a next page exists."""
+    paths = see_paths(f, page, today)
+    with ThreadPoolExecutor(max_workers=len(paths)) as pool:
+        got = list(pool.map(lambda p: _see_read(*p), paths))
+    rows = _interleave([r for r, _ in got], cap=None)
+    if rows is None:
+        return None, False
+    if f["hide"]:
+        rows = [r for r in rows if r["status_word"] not in ON_DISK]
+    return rows, page < MAX_PAGE and any(page < n for r, n in got if r is not None)
+
+
+def see_title(f: dict, genre_name: str | None = None, service_name: str | None = None) -> str:
+    head = "Trending" if f["sort"] == "trending" else f"{SORT_WORDS[f['sort']]} {KIND_WORDS[f['kind']]}"
+    return " · ".join(x for x in (head, genre_name, str(f["year"]) if f["year"] else None, service_name) if x)
+
+
+def _see_ctx(request: Request, f: dict, first: int, last: int, on_media: bool) -> dict:
+    """The grid page's context: pages first..last (read in parallel, de-duplicated), the filter lists, Load more."""
+    ctx = {"f": f, "kinds": KINDS, "sorts": SORTS, "genres": None, "services": None, "rows": [], "note": None,
+           "next_href": None, "more_href": None, "first": first, "on_media": on_media, "wl_keys": None,
+           "title": see_title(f), "years": list(range(date.today().year + 2, 1949, -1))}
+    if not _creds():
+        return ctx
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        svc = pool.submit(services)
+        gl = pool.submit(genres, f["kind"]) if f["kind"] else None
+        ctx["services"], ctx["genres"] = svc.result(), gl.result() if gl else None
+    if f["genre"] and ctx["genres"] is not None and f["genre"] not in {g["id"] for g in ctx["genres"]}:
+        f["genre"] = None
+    pages = list(range(first, last + 1))
+    with ThreadPoolExecutor(max_workers=len(pages)) as pool:
+        got = list(pool.map(lambda n: see_page(f, n), pages))
+    seen, rows = set(), []
+    for r in (r for page_rows, _ in got for r in page_rows or []):
+        if (r["kind"], r["tmdb_id"]) not in seen:
+            seen.add((r["kind"], r["tmdb_id"]))
+            rows.append(r)
+    failed = all(page_rows is None for page_rows, _ in got)
+    if got[-1][1]:
+        ctx["next_href"], ctx["more_href"] = see_href(f, last + 1), see_href(f, last + 1, more=True)
+    ctx["note"] = None if rows else "Discover unavailable" if failed else "Nothing to show."
+    gname = next((g["name"] for g in ctx["genres"] or [] if g["id"] == f["genre"]), None)
+    sname = next((s["name"] for s in ctx["services"] or [] if s["id"] == f["service"]),
+                 "Streaming service" if f["service"] else None)
+    ctx["title"] = see_title(f, gname, sname)
+    if on_media:   # friends: their request state on every poster (hub.media_guest_requests), no watchlist
+        from hub import media_guest_requests as mgr
+        ctx["rows"] = mgr.with_states(rows, mgr.viewer_mine())
+    else:
+        ctx["rows"] = rows
+        ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in rows])
+        media_awards_badges.attach(rows)
+    return ctx
+
+
+@router.get(SEE_ALL, response_class=HTMLResponse)
+def see_all_page(request: Request, shelf: str = "", kind: str | None = None, sort: str | None = None,
+                 genre: str | None = None, year: str | None = None, service: str | None = None, hide: str = "",
+                 page: str = "1", more: str = ""):
+    """The See all grid (JY-303). `more=1` from htmx = Load more: that one page's posters and the next button only."""
+    f = see_filters(shelf, kind, sort, genre, year, service, hide)
+    n = min(_posint(page) or 1, MAX_PAGE)
+    on_media = guest.is_media()
+    if more == "1" and is_htmx(request):
+        if shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, shell.get_snapshots(request=request),
+                                    detail=DISCOVER_DETAIL) is None:
+            return shell.not_found_page(request)
+        return _partial(request, "_discover_all_cells.html", **_see_ctx(request, f, n, n, on_media))
+    return _page(request, "media_discover_all.html", lambda: _see_ctx(request, f, 1, min(n, FULL_PAGES), on_media))
 
 
 # ---- Title page + request ----

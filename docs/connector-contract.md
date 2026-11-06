@@ -42,6 +42,9 @@ Browse by service (media-ux2, 2026-10-08) is part of this exception, not a new o
 reads `/api/v1/watchproviders/{movies|tv}?watchRegion=AU` (24 h, in memory + the disk meta cache) and
 `/media/discover/service/{provider_id}` reads `/api/v1/discover/{movies|tv}?watchRegion=AU&watchProviders=<id>&sortBy=…`
 (6 h in memory; failed reads are not cached). Same env, same type/status-only logging, words on failure.
+See all (JY-303, 2026-11-06) is part of it too: `/media/discover/all` reads the shelf paths with `?page=N`,
+`/api/v1/discover/{movies|tv}` with the service parameters plus `genre=<id>`, and `/api/v1/genres/{movie|tv}` (24 h, disk
+meta cache); 3 s reads, 10 min per page path, a failure remembered 60 s.
 
 **Fifth exception (2026-10-05): her view.** `media.db` ratings and diary are per owner —
 primary key `(item_key, owner)`, owner `you` or `her` — and an older single-owner file is

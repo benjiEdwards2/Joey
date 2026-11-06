@@ -1,12 +1,13 @@
 {# One Discover/search result (2026-10-05; restyle Phase 3 poster card): poster, title, then year · kind · status
    WORD. F6: a small "+" beside the title (never over the picture) adds it to the watchlist (htmx, plain-form
-   fallback); hidden once it is on the list. The whole card is the link (a.rowlink over the .card-cell). #}
+   fallback); hidden once it is on the list. The whole card is the link (a.rowlink over the .card-cell). JY-303: `first` marks the
+   first poster a Load more added (the See all grid focuses it). #}
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
 {% from "_award_icons.html" import award_badge %}
-{% macro item(i, wl_keys=none) -%}
+{% macro item(i, wl_keys=none, first=false) -%}
 <div class="card-cell">
-<a class="rowlink" href="{{ i.href }}">
+<a class="rowlink" href="{{ i.href }}"{{ " data-more-first" if first }}>
   <span class="card-pic{{ ' is-won' if i.award }}">{{ poster(i.poster, i.title, 240) }}{{ award_badge(i.award) }}</span>
   <span class="row-title">{{ i.title }}</span>
 </a>

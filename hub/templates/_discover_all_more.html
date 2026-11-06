@@ -1,0 +1,5 @@
+{# JY-303: Load more under the See all grid - a link (works without JS: the page with one more page of posters); htmx
+   adds the next page's posters to #see-grid and pushes that URL. Absent on the last page. Out of band in the partial. #}
+<div id="see-more" class="seemore-wrap"{% if first > 1 %} hx-swap-oob="true"{% endif %}>
+  {%- if next_href %}<a class="btn btn-secondary seemore" href="{{ next_href }}" hx-get="{{ more_href }}" hx-target="#see-grid" hx-swap="beforeend" hx-push-url="{{ next_href }}">Load more</a>{% endif -%}
+</div>

@@ -1238,6 +1238,18 @@ a.awline:hover { background: var(--soft); }
   overflow-wrap: anywhere; }
 .awchip.is-won { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); font-weight: 600; }
 .awchips .row-meta { min-width: 0; }
+/* JY-294 (option A): the person page's awarded-works carousel - a ribbon over the poster (gold "N won", neutral grey
+   "N nom"), the award lines under the title (gold = won; each line also says Won / Nominated to a screen reader), and
+   the per-ceremony list folded under it. Cards a little wider than a poster shelf so a category fits on two lines. */
+.carousel.awworks { margin-bottom: 8px; }
+.carousel.awworks > * { flex-basis: 136px; width: 136px; }
+@media (min-width: 640px) { .carousel.awworks > * { flex-basis: 168px; width: 168px; } }
+.poster-tag.awribbon { background: var(--poster-badge-bg); color: var(--text-2); box-shadow: 0 0 0 1px var(--line); }
+.poster-tag.awribbon.is-won { background: var(--gold); color: var(--zinc-950); box-shadow: none; }
+.awwork-line { display: block; margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--text-4); overflow-wrap: anywhere; }
+.awwork-line.is-won { color: var(--gold); font-weight: 600; }
+.awwork-more { color: var(--text-5); }
+.awall > summary { margin-top: 4px; }
 /* F2 fast item pages (2026-10-12): a film-page section waiting on an upstream read sits in a .fpart placeholder (it adds
    no box: its content lays out as the section itself would); the page's one part request swaps it out of band. The
    waiting score pill and shelf say "Loading" in the dim meta colour; the shelf keeps a poster row's height. */

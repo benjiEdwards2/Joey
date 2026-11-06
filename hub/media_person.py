@@ -229,9 +229,13 @@ def person_page(request: Request, person_id: str):
     try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
+        # JY-294: the carousel of their awarded works; a work's poster falls back to the same title in their credits
+        posters = {(r["kind"], r["tmdb_id"]): r["poster"] for f in ("shelf", "films", "series", "bonus", "shows")
+                   for r in person.get(f) or [] if r.get("poster")}
+        person["award_works"] = media_awards_pages.person_works(person["awards"], posters)
     except Exception as exc:  # the page never fails on the awards lookup
         log.warning("awards lookup failed: %s", type(exc).__name__)
-        person["awards"] = None
+        person["awards"], person["award_works"] = None, []
     try:
         row = media_follow.get("person", int(person_id))
     except Exception as exc:  # the page never fails on the follow lookup

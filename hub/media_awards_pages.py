@@ -816,3 +816,40 @@ def person_rows(got: dict) -> dict | None:
                                                        _count(len(cats), "nomination")) if x)})
     return {"head": f"{_count(got['wins'], 'win')} · {_count(got['noms'], 'nomination')}", "groups": groups,
             "rows": rows}
+
+
+WORK_LINES = 3   # JY-294: award lines under a carousel card before "+N more"
+
+
+def person_works(section: dict | None, posters: dict | None = None) -> list[dict]:
+    """JY-294 (option A, B. 2026-11-06): person_rows' rows -> one carousel card per work that carries awards: poster
+    (the stored award_entity.poster, else `posters[(kind, tmdb_id)]` from the page's own credits, else none), href,
+    a "N won" (gold) / "N nom" ribbon over distinct (ceremony, year, category) pairs, and its award lines
+    ("Oscars 2025 · Best Actress", won flag), won first then newest. Most wins, most nominations, newest year, title.
+    Rows with no work title stay in the full list only."""
+    works: dict[str, dict] = {}
+    for r in (section or {}).get("rows") or []:
+        title = str(r.get("work_title") or "").strip()
+        if not title:
+            continue
+        ent = r.get("work") or {}
+        w = works.setdefault(ent.get("qid") or f"title:{title.casefold()}", {
+            "title": title, "href": r.get("href"), "kind": r.get("kind"), "ent": ent, "cats": {}})
+        k = (r.get("body_id"), r.get("year"), r.get("cat"))
+        if k not in w["cats"]:
+            w["cats"][k] = {"text": " · ".join(x for x in (" ".join(str(p) for p in (r.get("body"), r.get("year")) if p),
+                                                            r.get("cat")) if x),
+                            "won": False, "year": r.get("year") or 0}
+        w["cats"][k]["won"] = w["cats"][k]["won"] or bool(r.get("won"))
+    out = []
+    for w in works.values():
+        ent, lines = w.pop("ent"), sorted(w.pop("cats").values(), key=lambda c: (not c["won"], -c["year"]))
+        tmdb = ent.get("tmdb_tv") if w["kind"] == "tv" else ent.get("tmdb_movie")
+        won = sum(1 for c in lines if c["won"])
+        out.append({**w, "poster": ent.get("poster") or (posters or {}).get((w["kind"], tmdb)), "won": won,
+                    "noms": len(lines), "ribbon": f"{won} won" if won else f"{len(lines)} nom",
+                    "lines": lines[:WORK_LINES], "more": max(0, len(lines) - WORK_LINES),
+                    "year": max(c["year"] for c in lines)})
+    out.sort(key=lambda w: w["title"].casefold())
+    out.sort(key=lambda w: (w["won"], w["noms"], w["year"]), reverse=True)
+    return out

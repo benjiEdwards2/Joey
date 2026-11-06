@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from hub import guest, library_index, media_awards, media_backup, media_follow, media_plays, media_posters, media_warmup, shell
+from hub import guest, library_index, media_awards, media_collections, media_backup, media_follow, media_plays, media_posters, media_warmup, shell
 from hub import server as server_area
 from hub import server_alerts, server_digest, server_history, server_uptime, server_visits
 from hub.store import get_snapshots as _read_snapshots
@@ -106,6 +106,14 @@ def _library_index_loop():
                   lambda: library_index.tick(_read_snapshots))
 
 
+def _media_collections_loop():
+    """JY-266: the Collections pass (hub/media_collections.py) ~4 min after startup, then hourly: each owned film's
+    TMDB collection and each collection's parts, re-read monthly, at most PER_PASS Seerr reads a tick.
+    COLLECTIONS=off starts nothing."""
+    return _every("media collections", media_collections.FIRST_DELAY_S, media_collections.TICK_S,
+                  lambda: media_collections.tick(_read_snapshots))
+
+
 def prewarm() -> dict:
     """E1 (2026-10-13): the first request after a deploy no longer pays the Jinja compiles and the snapshot parses -
     every template is compiled and every envelope parsed once at startup. -> counts; never raises."""
@@ -144,6 +152,7 @@ async def lifespan(_: FastAPI):
         None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
         None if media_posters.disabled() else asyncio.create_task(_media_posters_loop()),   # JY-260
         None if library_index.disabled() else asyncio.create_task(_library_index_loop()),   # JY-264
+        None if media_collections.disabled() else asyncio.create_task(_media_collections_loop()),   # JY-266
     ]
     yield
     server_visits.flush()   # JY-134: commit each viewer's in-memory last_seen (written at most once a minute)

@@ -33,7 +33,7 @@ def test_step_6_creates_the_index_and_the_audit_tables(db):
         pass
     with closing(sqlite3.connect(db)) as conn:
         names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 8
     assert {"library_index", "library_index_state", "reattach_run", "reattach_change"} <= names
 
 
@@ -217,7 +217,7 @@ def test_a_v6_file_with_jy265s_table_upgrades_to_v7_and_keeps_every_row(tmp_path
     media_store.reset()
     media_store.forget()
     with closing(media_store.connect()) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 8
         names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert {"library_index", "library_index_state", "reattach_run", "reattach_change"} <= names
         for t, rows in before.items():

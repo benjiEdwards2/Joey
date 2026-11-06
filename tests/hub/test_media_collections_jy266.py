@@ -7,6 +7,7 @@ import re
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -16,6 +17,7 @@ from hub.identity import Identity
 from tests.hub.film_page import whole
 from tests.hub.guest_pages import TV_UA
 from tests.hub.helpers import env  # noqa: F401
+from tests.hub.tv_css import design_px
 
 NOW = datetime(2026, 11, 6, 9, 0, tzinfo=timezone.utc)
 
@@ -159,10 +161,39 @@ def test_a_collection_tmdb_drops_is_removed(db, tmp_path):
     mc.run_pass(OWNED, NOW)
     db.gone.add(2)
     out = mc.run_pass(OWNED, NOW + timedelta(days=31))
-    # the films were re-read first (still naming 2), then collection 2 answered 404: dropped
+    # the films were re-read first (still naming 2), then collection 2 answered 404: dropped, with a tombstone
     assert out["dropped"] == 1
     assert [s["name"] for s in mc.summaries(owned_keys())] == ["Alpha Collection", "Solo Collection"]
-    assert _members(tmp_path / "media.db")[20] is None
+    with closing(sqlite3.connect(tmp_path / "media.db")) as conn:
+        assert conn.execute("SELECT gone_at FROM collection_gone WHERE id = 2").fetchone()[0] == \
+            (NOW + timedelta(days=31)).isoformat(timespec="seconds")
+    # no hourly churn: neither the films nor the gone collection is asked again inside 30 days
+    db.calls.clear()
+    for h in (1, 2, 24 * 29):
+        assert mc.run_pass(OWNED, NOW + timedelta(days=31, hours=h))["calls"] == 0
+    assert db.calls == []
+    # 30 days on, the films are re-read and the collection asked once more; back on TMDB = shown, tombstone gone
+    db.gone.discard(2)
+    out = mc.run_pass(OWNED, NOW + timedelta(days=62))
+    assert "/api/v1/collection/2" in db.calls and out["dropped"] == 0
+    assert "Bravo Collection" in [s["name"] for s in mc.summaries(owned_keys())]
+    with closing(sqlite3.connect(tmp_path / "media.db")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM collection_gone").fetchone()[0] == 0
+
+
+def test_a_2xx_that_is_not_an_object_is_a_failure_not_a_drop(db, tmp_path, monkeypatch):
+    real = db.__call__
+
+    def junk(path, timeout=None):
+        return ([], 200) if path == "/api/v1/collection/2" else real(path)
+
+    monkeypatch.setattr(media_discover, "_fetch", junk)
+    out = mc.run_pass(OWNED, NOW)
+    assert out["failed"] == 1 and out["dropped"] == 0 and mc.last_pass() is None
+    with closing(sqlite3.connect(tmp_path / "media.db")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM collection_gone").fetchone()[0] == 0
+    monkeypatch.setattr(media_discover, "_fetch", lambda path, timeout=None: ("junk", 200))
+    assert mc.run_pass({99}, NOW)["failed"] == 1 and 99 not in _members(tmp_path / "media.db")
 
 
 def test_kill_switch_and_no_creds(db, monkeypatch):
@@ -399,3 +430,32 @@ def test_letter_and_href_helpers():
     assert cp.letter("The Matrix Collection") == "M" and cp.letter("2001 Collection") == "#" and cp.letter("The") == "T"
     assert cp.href() == "/media/collections"
     assert cp.href("complete", "size", True) == "/media/collections?f=complete&s=size&single=1"
+
+
+# ---- review fixes (PR #335) ----
+
+def test_friend_unknown_collection_is_404_with_no_upstream_read(site, monkeypatch):
+    client, both = site
+    with closing(media_store.connect()) as conn:
+        conn.execute("DELETE FROM collection")
+        conn.commit()
+    monkeypatch.setenv("JOEY_FRONT", "media")
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: FRIEND)
+    both.calls.clear()
+    assert client.get("/media/collections/9").status_code == 404     # Seerr would know 9: never asked for a friend
+    assert client.get("/media/collections/77").status_code == 404
+    assert not [c for c in both.calls if "/api/v1/collection/" in c]
+
+
+def test_owned_card_stacks_title_and_meta():
+    css = (Path(mc.__file__).resolve().parent / "static" / "control-surface.css").read_text(encoding="utf-8")
+    rule = re.search(r"^\.colparts \.card-cell \.row-title, \.colparts \.card-cell \.row-meta[^{]*\{([^}]*)\}", css, re.M)
+    assert rule and "grid-column: 1 / -1" in rule.group(1)
+
+
+def test_tv_collection_words_at_the_floor_and_chips_wrap():
+    tv = design_px((Path(mc.__file__).resolve().parent / "static" / "tv.css").read_text(encoding="utf-8"))
+    words = re.search(r"^html\.tv \.colon-words \{([^}]*)\}", tv, re.M).group(1)
+    assert int(re.search(r"font-size: (\d+)px", words).group(1)) >= 18
+    chips = re.search(r"^html\.tv \.colbar > \.tv-libchips \{([^}]*)\}", tv, re.M).group(1)
+    assert "flex-wrap: wrap" in chips and "overflow: visible" in chips

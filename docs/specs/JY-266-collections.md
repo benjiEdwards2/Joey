@@ -31,12 +31,14 @@ franchise, so B. can see what he has and what is missing.
   - `collection_member(movie_tmdb INTEGER PRIMARY KEY, collection_id INTEGER NULL, checked_at)` = the index
     movie_tmdb -> collection; a film with no collection keeps a row with NULL so it is not asked again.
   - `collection_state(key, value)`: `kick_at` (the manual kick), `last_pass_at`.
+  - `collection_gone(id, gone_at)`: a tombstone for a collection TMDB answered 404 for; not asked again for 30 days.
 - The pass (`media_collections.tick`, hub loop, first run ~4 min after start, then hourly): owned films = the movie
   library of the jellyfin snapshot (`tmdb:<id>` keys). Due = an owned film with no member row, or one checked over
   30 days ago (monthly), or before the last kick; a collection is due when a member names it and its row is missing,
   over 30 days old or older than the kick. At most PER_PASS (40) Seerr reads per tick, so a first fill of a few hundred
   films spreads over a few hours. A failed read (no answer) stops the pass (backoff: the next tick, an hour on); a 404
-  is an answer: a film with no Seerr body gets NULL, a collection TMDB drops is deleted and its members re-checked.
+  is an answer: a film with no Seerr body gets NULL; a collection TMDB drops loses its row and gets a tombstone (not
+  re-asked for 30 days; its films keep their own monthly date). A 2xx that is not a JSON object counts as a failure.
   Memory gate: the pass is skipped when the `system` snapshot has no fresh reading or under 1,200 MB available (as
   the posters pass). Kill switch `COLLECTIONS=off`: no loop, the pages still read what is stored.
 - Manual kick: owner "you" on the private front, a "Check now" button on the grid page (POST
@@ -44,7 +46,8 @@ franchise, so B. can see what he has and what is missing.
 - Owned / missing: `media_collections.summaries(owned_keys)`: one card per stored collection with at least one part
   in `owned_keys`; parts in release order; `n`, `on`, year range ignoring parts with no date, `complete`. The pages
   read the tables only (no Seerr call on render); the franchise page of a collection not stored yet falls back to the
-  title page's cached Seerr read (`media_film._cget`, already warm when the banner link was followed).
+  title page's cached Seerr read (`media_film._cget`, already warm when the banner link was followed), for the
+  household only: a friend asking for an unstored id gets 404 with no upstream read.
 - A friend's page (media front) uses the friend's scrubbed library (`media_home.view_jelly`): collections from titles
   they can see only; no household watch state appears.
 

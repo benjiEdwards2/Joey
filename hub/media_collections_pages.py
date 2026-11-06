@@ -4,7 +4,7 @@ P2: the franchise page `GET /media/collections/{col_id}`: the collection's banne
 owned in colour (the title page), missing dimmed with Request (the normal confirm step in the card, the existing
 request path: the household's own goes straight through, a friend's is pending for B.'s approval); a part already
 requested reads its word instead. Reads media.db only; a collection not stored yet (the monthly pass has not reached
-it) falls back to the title page's cached Seerr read. On the TV (Q4 A) the owned films only, read-only.
+it) falls back to the title page's cached Seerr read, for the household only (a friend gets 404, no upstream read). On the TV (Q4 A) the owned films only, read-only.
 A friend (media front) sees it through their scrubbed library: owned = what they can see.
 
 P3: the grid `GET /media/collections` (Movies > Collections): one card per franchise with at least one film on Joey -
@@ -142,7 +142,9 @@ def franchise_page(request: Request, col_id: str):
     col_id = int(col_id)
     request.state.media_section = "movies"
     owned = owned_of(request)
-    col = mc.one(col_id, owned) or _fallback(col_id, owned)
+    view, _ = shell.resolve_owner_view(request)
+    # the live fallback read is the household's only (owner you / her); a friend gets stored collections alone
+    col = mc.one(col_id, owned) or (None if media_home._not_household(view) else _fallback(col_id, owned))
     if col is None:
         return shell.not_found_page(request, "No collection here")
     ctx = franchise_ctx(col, media_front.tv_mode(request), _words())

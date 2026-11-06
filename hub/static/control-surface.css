@@ -1688,6 +1688,9 @@ details.reqdecide.confirm-wrap[open] + details.confirm-wrap { margin-left: auto;
 /* JY-266 Collections: the franchise page's missing films dimmed, Request under the card */
 .colparts .card-cell.is-missing .card-pic { opacity: .45; filter: grayscale(.6); }
 .colparts .card-cell.is-missing .row-title { color: var(--text-4); }
+.colparts .card-cell .row-title, .colparts .card-cell .row-meta, .colparts .card-cell > .colreq { grid-column: 1 / -1; }
+.colparts .card-cell { align-content: start; }   /* a taller neighbour (Request) never spreads the title from its meta */
+.colparts .card-cell .row-meta { font-size: 11px; }
 .colreq { margin-top: 6px; }
 /* JY-266 P3: the Collections grid - poster stack, the on-Joey bar, the A-Z jump bar */
 .colbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }

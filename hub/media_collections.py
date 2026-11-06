@@ -7,8 +7,10 @@ P1 (data, no screen):
   * The pass (`tick`, the hub loop, hourly): the owned films are the jellyfin snapshot's movie library. A film is due
     when it has no member row, was checked over EVERY_DAYS ago, or before the last manual kick; a collection is due when
     a member names it and its row is missing, old or older than the kick. At most PER_PASS Seerr reads a tick. A read
-    with no answer stops the pass (the next tick retries); a 404 is an answer (film: NULL; collection: dropped, its
-    members re-checked). Memory gate as the posters pass; COLLECTIONS=off starts no loop.
+    with no answer (or a 2xx that is not a JSON object) stops the pass (the next tick retries); a 404 is an answer
+    (film: NULL; collection: its row goes and a tombstone in `collection_gone` keeps it from being asked again for
+    EVERY_DAYS - its films keep their own monthly date, so nothing churns hourly). Memory gate as the posters pass;
+    COLLECTIONS=off starts no loop.
   * `summaries(owned_keys)`: the owned / missing computation the pages draw, from the tables only (no network).
 """
 from __future__ import annotations
@@ -40,6 +42,8 @@ DDL = (
   movie_tmdb INTEGER PRIMARY KEY, collection_id INTEGER, checked_at TEXT NOT NULL)""",
     "CREATE INDEX IF NOT EXISTS collection_member_col ON collection_member(collection_id)",
     "CREATE TABLE IF NOT EXISTS collection_state(key TEXT PRIMARY KEY, value TEXT)",
+    # a collection Seerr / TMDB answered 404 for: not asked again (nor shown) until gone_at is EVERY_DAYS old
+    "CREATE TABLE IF NOT EXISTS collection_gone(id INTEGER PRIMARY KEY, gone_at TEXT NOT NULL)",
 )
 
 _running = threading.Lock()   # one pass at a time (the loop and a kick)
@@ -158,7 +162,7 @@ def run_pass(owned: set[int], now: datetime | None = None, limit: int = PER_PASS
                     break
                 counts["calls"] += 1
                 body, code = md._fetch(f"/api/v1/movie/{tmdb}")
-                if body is None and code != 404:
+                if code != 404 and not isinstance(body, dict):   # no answer, or a 2xx that is not an object
                     counts["failed"] += 1
                     break
                 col = body.get("collection") if isinstance(body, dict) else None
@@ -179,25 +183,26 @@ def run_pass(owned: set[int], now: datetime | None = None, limit: int = PER_PASS
 
 
 def _collections(db, cut: str, stamp: str, limit: int, counts: dict) -> None:
-    rows = db.execute("SELECT DISTINCT m.collection_id, c.fetched_at FROM collection_member m LEFT JOIN collection c "
-                      "ON c.id = m.collection_id WHERE m.collection_id IS NOT NULL").fetchall()
-    for col_id, fetched in sorted(rows, key=lambda r: (r[1] is not None, r[1] or "", r[0])):
-        if fetched is not None and fetched >= cut:
+    rows = db.execute("SELECT DISTINCT m.collection_id, c.fetched_at, g.gone_at FROM collection_member m "
+                      "LEFT JOIN collection c ON c.id = m.collection_id LEFT JOIN collection_gone g "
+                      "ON g.id = m.collection_id WHERE m.collection_id IS NOT NULL").fetchall()
+    for col_id, fetched, gone in sorted(rows, key=lambda r: (r[1] is not None, r[1] or "", r[0])):
+        if (fetched is not None and fetched >= cut) or (gone is not None and gone >= cut):
             continue
         if counts["calls"] >= limit:
             counts["more"] = True
             return
         counts["calls"] += 1
         body, code = md._fetch(f"/api/v1/collection/{col_id}")
-        if code == 404 or (body is not None and not isinstance(body, dict)):
-            # TMDB dropped it: forget the row, and have its members asked again on the next pass
+        if code == 404:
+            # TMDB dropped it: its row goes, a tombstone keeps it unasked for EVERY_DAYS
             db.execute("DELETE FROM collection WHERE id = ?", (col_id,))
-            db.execute("UPDATE collection_member SET collection_id = NULL, checked_at = '' WHERE collection_id = ?",
-                       (col_id,))
+            db.execute("INSERT INTO collection_gone(id, gone_at) VALUES(?, ?) ON CONFLICT(id) DO UPDATE SET "
+                       "gone_at = excluded.gone_at", (col_id, stamp))
             counts["dropped"] += 1
             db.commit()
             continue
-        if body is None:
+        if not isinstance(body, dict):   # no answer, or a 2xx that is not an object: try again next tick
             counts["failed"] += 1
             return
         name = str(body.get("name") or "Collection").strip()[:NAME_MAX]
@@ -206,6 +211,7 @@ def _collections(db, cut: str, stamp: str, limit: int, counts: dict) -> None:
                    "backdrop = excluded.backdrop, parts_json = excluded.parts_json, fetched_at = excluded.fetched_at",
                    (col_id, name, md._ref(body.get("posterPath")), md._ref(body.get("backdropPath")),
                     json.dumps(parts_of(body), separators=(",", ":")), stamp))
+        db.execute("DELETE FROM collection_gone WHERE id = ?", (col_id,))
         counts["collections"] += 1
         db.commit()
 

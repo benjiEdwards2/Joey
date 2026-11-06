@@ -807,3 +807,10 @@ html.tv .seefilters .select, html.tv .seehide { height: 2.5rem; font-size: 1.125
 html.tv .seehide { padding: 0 .75rem; }
 html.tv .seemore-wrap { padding: 1rem 0 1.5rem; }
 html.tv .seemore { height: 2.75rem; padding: 0 1.5rem; font-size: 1.125rem; border-radius: var(--tv-r-pill); }
+
+/* JY-266: the Collections grid - its "3 of 4 on Joey" words at the 18 px floor, and the filter / sort chips wrap to a
+   second row instead of clipping the last sort at 1920 */
+html.tv .colon-words { font-size: 1.125rem; line-height: 1.25rem; }
+html.tv .colon-words svg.ic { width: 1.125rem; height: 1.125rem; }
+html.tv .colon-bar { height: .3125rem; }
+html.tv .colbar > .tv-libchips { flex: 1 1 100%; flex-wrap: wrap; row-gap: .5rem; overflow: visible; }

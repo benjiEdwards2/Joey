@@ -236,8 +236,9 @@
 {# JY-317 (B. 2026-11-06: "Remember the rating column sitting on the right hand side as a smaller side bar."): a show /
    season page off the TV has the film's two-column body from 1024 px - the main column (cast, crew, where to watch)
    and a narrow right-hand column (Scores, Details, the owner's File drawer), stacked under the main column on a phone.
-   JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath"): the Episodes row and
-   the part-of banner (`belowcols`) come after that block, full width; elsewhere they draw here as before. #}
+   JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath", then on accepting:
+   "Move the cast and score to below the episode sessions"): the Episodes row and the part-of banner (`belowcols`)
+   come full width BEFORE that block; elsewhere they draw here as before. #}
 {% set belowcols %}
 {% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons and not film.episode %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
@@ -389,7 +390,7 @@
 </aside>
 </div>
 {% endif %}
-{% if tvweb %}<div class="filmcols tlcols"><div class="filmcol-main">
+{% if tvweb %}{{ belowcols }}<div class="filmcols tlcols"><div class="filmcol-main">
 {{ offseasons }}
 {% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
 {% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}
@@ -415,7 +416,6 @@
 {% if tvweb %}{{ detailsec }}{% if fp %}{{ tf.drawer(fp) }}{% endif %}
 </aside>
 </div>
-{{ belowcols }}
 {% endif %}
 {# JY-269 P1 (2026-10-30): the web's "Your rating" picker moved into the hero's Rate popover (id="rate"); the TV never drew it #}
 {# Awards (AWARDS_PLAN A5, 2026-10-08; awards-ui item 5, 2026-10-09): one group per ceremony (its mark + "Won 3 of 7

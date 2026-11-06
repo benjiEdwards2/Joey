@@ -55,9 +55,10 @@ def test_scores_details_and_file_sit_in_the_right_hand_column(env, season, monke
     assert 'class="sec filedrawer"' in side and b.count('class="sec filedrawer"') == 1
     assert 'class="sec castsec casttiles"' in main and "castsec" not in side
     assert b.count('<h2 class="seclabel">Cast</h2>') == 1 and b.count('<div class="stats numbers">') == 1
-    # JY-316 r4: the Episodes row comes after the two-column block (full width), never inside it; no r3 hero strip
-    assert ">Episodes</h2>" not in main + side and after.lstrip().startswith("</div>")
-    assert b.index('<div class="filmcols tlcols">') < b.index('class="sec tl-eps"') and ">Episodes</h2>" in after
+    # JY-316 r4 (B.: "Move the cast and score to below the episode sessions"): the Episodes row comes full width
+    # BEFORE the two-column block, never inside it; no r3 hero strip
+    assert ">Episodes</h2>" not in main + side + after
+    assert b.index('class="sec tl-eps"') < b.index('<div class="filmcols tlcols">')
     assert "hero-scores" not in b
 
 
@@ -67,8 +68,9 @@ def test_season_page_keeps_rate_and_puts_the_banner_after_the_episodes(env, seas
         b = main_of(whole(client, "/media/item/sea1"))
     main, side, after = cols(b)
     assert 'class="scorepill sp-you"' in side                         # Rate / Yours stays in the Scores card
-    assert 'class="sec partof-sec"' in after and "All seasons</a>" in after   # JY-316 r4: under the Episodes row
-    assert after.index(">Episodes</h2>") < after.index('class="sec partof-sec"')
+    before = b[:b.index('<div class="filmcols tlcols">')]
+    assert 'class="sec partof-sec"' in before and "All seasons</a>" in before   # JY-316 r4: under the Episodes row, above the columns
+    assert before.index(">Episodes</h2>") < before.index('class="sec partof-sec"')
 
 
 def test_sidebar_runtime_keeps_the_ends_time():

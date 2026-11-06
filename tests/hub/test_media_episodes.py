@@ -127,10 +127,10 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
     with client:
         b = main_of(whole(client, "/media/item/ser1"))
     # JY-290 + JY-282 (2026-11-03): no Overview section (synopsis once, in the hero); no bottom Seasons list.
-    # JY-316 r4 (2026-11-06): cast and where to watch sit beside the sidebar; the Episodes row comes full width under
+    # JY-316 r4 (2026-11-06): the Episodes row comes full width first; cast and where to watch sit beside the sidebar under it
     assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A quiet show.") == 1
     idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Cast")}
-    assert idx["Cast"] < b.index('aria-label="Where to watch"') < idx["Episodes"]   # JY-281: the JY-286 logo row
+    assert idx["Episodes"] < idx["Cast"] < b.index('aria-label="Where to watch"')   # JY-281: the JY-286 logo row
     assert '<h2 class="seclabel">Seasons</h2>' not in b
 
 

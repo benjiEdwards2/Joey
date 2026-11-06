@@ -1,6 +1,6 @@
 # JY-316 round 3: scores strip in the hero on show, season and episode pages; no right sidebar
 
-Status: building (B. 2026-11-06, Sweep 35 on JY-316: "Change — Fine for the phone. Only change I would have is placing the ratings higher up in towards the header to allow the episode page to fully span the page. I think I would prefer that. Make it slightly smaller as well. I am happy if there are only 3 ratings in there. IMDB, TMDB and yours.")
+Status: superseded by round 4 (JY-316r4-sidebar-high-episodes-under.md) on B.'s Sweep 36 change; never shipped
 Size: S
 Live risk: none (template + CSS; no data change)
 Area: `hub/templates/media_film.html` (tvweb branch only), `hub/static/control-surface.css`, `tests/hub/` (pins from JY-317 for `.filmcols.tlcols` / `aside.filmcol-side` on show pages)

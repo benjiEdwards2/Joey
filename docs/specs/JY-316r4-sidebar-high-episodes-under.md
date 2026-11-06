@@ -1,6 +1,6 @@
 # JY-316 round 4: show and season pages get the film-style right sidebar, higher and narrower; episodes full width underneath
 
-Status: building (B. 2026-11-06, Sweep 36 on JY-316 r3: "Change — I wanted a right hand sidebar. I just wanted it higher so the episodes could go underneath. Please make this like the movies. Just higher and smaller to allow the episodes to sit underneath."; q-a "No. look above. They should be similar. Just higher and smaller to allow episodes to go under."; q-b "Done. Fine with that. Can you make the radius smaller.")
+Status: shipped on PR #330 (5475c8a) with the final swap: Episodes row first, then cast + sidebar (B. Sweep 37)
 Size: S
 Live risk: none (template + CSS)
 Area: `hub/templates/media_film.html` (tvweb branch), `hub/static/control-surface.css`, `tests/hub/` (JY-317 / r3 pins)

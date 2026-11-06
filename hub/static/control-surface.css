@@ -1869,8 +1869,9 @@ html:not(.tv) .cue-arrow[hidden] { display: none; }
 @media (max-width: 767px) { html:not(.tv) .cue-arrow { display: none; } }
 html:not(.tv) .scorelink { padding: 0 10px 0 6px; }
 html:not(.tv) a.scorelink { color: var(--text-1); text-decoration: none; }
-html:not(.tv) .filedrawer > details.fold > summary.seclabel { display: block; }
-html:not(.tv) .filedrawer .filepanel { margin-top: 8px; }
+/* JY-284: the hero's File popover (beside Rate) - the owner's File panel; a long By episode list scrolls inside it */
+html:not(.tv) .tl-popin.tl-filepop { display: block; width: min(440px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; padding: 0; }
+html:not(.tv) .tl-filepop .filepanel { padding: 14px 16px; border: 0; background: none; box-shadow: none; }
 html:not(.tv) .provlogos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 html:not(.tv) .provlogos .microlabel { margin-right: 4px; }
 html:not(.tv) .provlogo { display: inline-flex; border-radius: 8px; }

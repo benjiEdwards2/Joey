@@ -552,9 +552,28 @@ def show_directors(item: dict | None, seasons: list[dict]) -> list[dict]:
 
 
 def file_owner(owner: str) -> bool:
-    """JY-280 P2 (JY-284, "only I can access"): the File drawer is drawn for the owner "you" on the private front only -
+    """JY-280 P2 (JY-284, "only I can access"): the File panel (the hero's chip) is for the owner "you" on the private front only -
     never for her, a friend or anyone on the guest front, so their HTML carries no file name, size, bitrate or tracks."""
     return owner == "you" and not guest.is_media()
+
+
+def tv_file_owner(owner: str, request) -> bool:
+    """JY-284: the TV title page's Files row, for B. alone. The TV runs on the media front, where file_owner is always
+    false, so its gate is the signed-in identity (media_db.owner_of of the session's view): "you" in TV mode only -
+    never her, a friend, or "you" on the guest front's web pages."""
+    from hub import media_front   # lazy: media_front imports the shell
+    return owner == "you" and media_front.tv_mode(request)
+
+
+def tv_file_row(fp: dict | None) -> dict | None:
+    """JY-284: what the TV Files row draws from the File panel - the badges, Size, the sound and the subtitles. Never
+    the file name or the release group (B.'s Q4 default)."""
+    if not fp:
+        return None
+    rows = {r["label"]: r["value"] for r in fp.get("rows") or []}
+    size = next((g["value"] for g in fp.get("grid") or [] if g.get("key") == "size"), None)
+    out = {"badges": fp.get("badges") or [], "size": size, "sound": rows.get("Audio"), "subs": rows.get("Subtitles")}
+    return out if any(out.values()) else None
 
 
 def file_panel(files: dict | None, kind: str | None, added: str | None, season: int | None = None) -> dict | None:
@@ -1340,6 +1359,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                            page_item["season_no"] if page_item and page_item["kind"] == "season" else None)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,
                   "languages": _languages(files), "added": added, "releases": [], "seasons": None}
+    # JY-284: the TV's Files row (badges, size, sound, subtitles), B.'s TV session only - its own gate, the media front
+    f["tv_file"] = tv_file_row(f["file"]) if kind in ("movie", "tv") and tv_file_owner(owner, request) else None
     if kind in ("movie", "tv") and not file_owner(owner):   # JY-280 P2 / JY-281: file facts are B.'s alone - gated here, not in CSS
         f["file"], f["facts"]["languages"] = None, None
     people = (item or {}).get("people") or []

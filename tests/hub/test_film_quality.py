@@ -217,7 +217,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    panel = b.split("File details</summary>", 1)[1].split("</details>", 1)[0]   # JY-280 P2 (2026-11-03): the owner's drawer
+    panel = b.split('class="tl-popin tl-filepop"', 1)[1].split("</details>", 1)[0]   # JY-284: the hero's File chip
     assert '<b>WEB-DL</b>' in panel and 'class="fmt fmt-source"' in panel
     for label, value in (("Size", "20.0 GB"), ("Bitrate", "4.7 Mb/s"), ("Picture", "1.78 : 1"), ("Added", "1 May 2024")):
         assert f'<div class="microlabel">{label}</div><div class="filestat-value">{value}</div>' in panel, label
@@ -228,7 +228,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     assert '<p class="filename">Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv</p>' in panel
     assert "secret-share" not in b and "/volume1" not in b                 # never the folders
     # JY-280: a film says its overview once (the hero) and leads the body with the cast tiles
-    assert ">Overview</h2>" not in b and b.index(">Cast</h2>") < b.index("File details</summary>") < b.index(">Crew</h2>")
+    assert ">Overview</h2>" not in b and b.index("tl-filepop") < b.index("</header>") < b.index(">Cast</h2>") < b.index(">Crew</h2>")
 
 
 def test_rank_hidden_under_twenty_films(env, monkeypatch, rankdir):

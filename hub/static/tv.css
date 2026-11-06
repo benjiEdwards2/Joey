@@ -657,6 +657,11 @@ html.tv .tv-extras .scorepill .sp-val, html.tv .tv-extras .scorepill .sp-name { 
 html.tv .tv-extras .scorepill .sp-val { font-weight: 700; color: var(--tv-t1); }
 html.tv .tv-extras .tv-factline { display: block; margin: .5rem 0 0; font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-extras .tv-factline .microlabel { margin-right: .5rem; }
+/* JY-284: B.'s Files row under Scores - the web's format badges at TV size, then Size · Sound · Subtitles */
+html.tv .tv-files .fmtbadges { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin-top: .5rem; }
+html.tv .tv-files .fmt b { font-size: 1.25rem; }
+html.tv .tv-files .fmt small { font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .tv-files .fmtimg { height: 1.75rem; }
 /* JY-286: where to watch as the streaming services' logos only (alt = the name), no link - 2.5rem (40 design px) tiles */
 html.tv .tv-providers .provlogos { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
 html.tv .tv-providers .provlogo { display: inline-flex; }

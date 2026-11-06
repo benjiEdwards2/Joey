@@ -737,6 +737,23 @@ def _cast(raw: dict, people: list[dict]) -> list[dict]:
     return [{"name": p["name"], "role": p["role"], "ref": p["ref"], "id": None} for p in people if p["type"] == "Actor"][:CAST_MAX]
 
 
+def season_names(page_item: dict | None, seasons: list[dict]) -> set[str] | None:
+    """JY-316 c: the names listed on this season's episodes (the cached season list: no request), for a season page; else None."""
+    if not page_item or page_item.get("kind") != "season":
+        return None
+    hit = _page_season(page_item, seasons or [])   # by the season's id first: a null IndexNumber cannot pick another season
+    return {n for e in hit.get("episodes") or [] for n in e.get("people_names") or ()} if hit else None
+
+
+def season_cast(cast: list[dict], names: set[str] | None) -> list[dict]:
+    """JY-316 c (B. 2026-11-04, Q2 default): on a season page, the show's cast filtered to the actors named in this season's
+    episodes; the whole show cast when fewer than 3 match. Same order, no new fetch."""
+    if names is None:
+        return cast
+    hit = [c for c in cast if c.get("name") in names]
+    return hit if len(hit) >= 3 else cast
+
+
 def _pid(value) -> int | None:
     """A TMDB person id for the /media/person link, else None (plain text / search fallback)."""
     return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
@@ -982,7 +999,9 @@ def tv_shelves(seasons: list[dict], page_season=None, this_id=None, next_ep: dic
     for s in with_eps:
         aired = [e for e in s["episodes"] if e.get("aired")]
         done = sum(1 for e in aired if e.get("played"))
+        nxt_ep = next((e for e in aired if not e.get("played")), None)   # JY-316 a: "next S2 E5" on the Episodes head line
         cards.append({"n": s["n"], "title": s.get("name") or f"Season {s['n']}", "href": _item_href(s.get("id")),
+                      "next_code": f"S{s['n']} E{nxt_ep['number']}" if nxt_ep else None,
                       "poster": f"jf:{s['id']}" if _item_href(s.get("id")) else None,
                       "sub": s.get("watched_text"), "pct": round(100 * done / len(aired)) if aired else None,
                       "here": page_season is not None and s is cur})
@@ -1065,7 +1084,7 @@ def _sections(f: dict, names, c: dict, ex: dict) -> None:
                                   + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else ""))
                                  if kind == "tv" and t and t.get("n_seasons") else None)
     if "cast" in names:
-        f["cast"] = _cast(raw, c["people"])
+        f["cast"] = season_cast(_cast(raw, c["people"]), c.get("season_names"))
     if "providers" in names:
         f["providers"] = _providers(raw, c["title"])
     if "shelves" in names:
@@ -1270,7 +1289,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                          and media_item.ITEM_RE.match(str(toggle_id)) else None)
 
     # --- 5. your rating, diary, watches ---
-    key_item = ep or item
+    # JY-316 d (B. 2026-11-04, Q1 default A): on a season page Rate and "Yours" are the season's, not the show's
+    key_item = ep or (page_item if page_item and page_item["kind"] == "season" else item)
     if key_item:
         rating = media_item._rating_for(key_item, media_db.rating_level(owner))
     elif tmdb_id and t:
@@ -1286,6 +1306,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     show_page = kind == "tv" and rating and rating["level"] == "show" and not ep and (not item or item["kind"] == "series")
     f["avg_score"] = (media_db.show_averages([(rating["item_key"], rating["title"])], owner).get(rating["item_key"])
                       if show_page and not f["score"] else None)
+    if page_item and page_item["kind"] == "season" and not f["score"] and item:   # JY-316 d: the season's episode mean
+        f["avg_score"] = media_db.season_average(item["title"], page_item["season_no"], owner)
     diary_item = key_item or {"kind": "movie" if kind == "movie" else "series", "id": "", "tmdb": tmdb_id,
                               "episode_key": None, "season_key": None}
     dates = media_item._diary_dates(diary_item, owner) if (rating or item) else []
@@ -1322,7 +1344,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         f["file"], f["facts"]["languages"] = None, None
     people = (item or {}).get("people") or []
     f["cast_h"], f["maker_h"] = CAST_H, MAKER_H
-    season_page = bool(page_item and page_item["kind"] == "season")
+    season_page = f["season_page"] = bool(page_item and page_item["kind"] == "season")
     # a show page's second card row (2026-10-11); not episodes, and not a season page (JY-289, B. 2026-11-02)
     f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep and not season_page else []
     if season_page and page_item.get("own_poster"):   # JY-289: the season's own poster, else the show's
@@ -1332,7 +1354,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["collection"], f["shelves"] = None, []
     ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": people,
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
-           "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending, "imdb": (item or {}).get("imdb")}
+           "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending, "imdb": (item or {}).get("imdb"),
+           "season_names": season_names(page_item, seasons)}
     _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
     f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
@@ -1403,7 +1426,7 @@ def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_i
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
            "lib_keys": on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv"), "arr": arr,
            "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True,
-           "imdb": (item or {}).get("imdb")}
+           "imdb": (item or {}).get("imdb"), "season_names": season_names(side["page_item"], seasons)}
     _sections(f, names, ctx, ex)
     return guest_controls(f, kind, tmdb_id)
 

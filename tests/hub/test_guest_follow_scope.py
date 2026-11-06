@@ -49,7 +49,8 @@ def friend(private, monkeypatch):
 
 
 def created_by(page: str) -> str:
-    return page.split('<div class="microlabel">Created by</div>', 1)[1].split("</section>", 1)[0]
+    # JY-317 (2026-11-06): a show's Created by is the film's chips ("Creator <name>") with the Follow buttons under them
+    return page.split('<div class="makerchips">', 1)[1].split("</section>", 1)[0]
 
 
 def test_private_front_still_shows_the_households_creator_follow(private):

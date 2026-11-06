@@ -248,6 +248,25 @@ def show_averages(shows, owner: str = "you") -> dict[str, float]:
     return {k: round(sum(v) / len(v), 1) for k, lv in got.items() for v in [lv["season"] or lv["episode"]] if v}
 
 
+def season_average(show_title: str, season_no, owner: str = "you") -> float | None:
+    """JY-316 d: the mean of the owner's episode ratings for one season, one decimal. Episode titles read
+    "Show · S02E03 · Name" (media_item._rating_for), so rows match on that prefix. ONE SELECT; None with no rows / no DB."""
+    if not show_title or season_no is None:
+        return None
+    db = _read()
+    if db is None:
+        return None
+    pre = f"{show_title} · S{int(season_no):02d}E"
+    try:
+        with closing(db):
+            rows = db.execute("SELECT score FROM rating WHERE owner = ? AND kind = 'tv' AND level = 'episode' "
+                              "AND substr(title, 1, ?) = ?", (owner, len(pre), pre)).fetchall()
+    except sqlite3.Error as exc:
+        log.warning("season_average failed: %s", type(exc).__name__)
+        return None
+    return round(sum(r["score"] for r in rows) / len(rows), 1) if rows else None
+
+
 def get_rating(item_key: str, owner: str = "you") -> dict | None:
     db = _read()
     if db is None:

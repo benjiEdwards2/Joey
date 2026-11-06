@@ -1776,12 +1776,12 @@ html:not(.tv) .tl-arrow:hover { background: var(--glass-bg-hover); }
   html:not(.tv) .tl-ep { flex-basis: 64vw; }
   html:not(.tv) .tl-eps { margin-top: 0; padding-top: 0; }
 }
-/* JY-269 phase 3 (2026-10-30), web + phone only: the cast as circles (88 px, name + role under) in a row that scrolls
-   sideways like the episodes row; "More on Joey" posters (120 px); skeleton shapes while the deferred part loads.
-   On the phone 2.3 items show, so the row reads as scrollable. */
+/* JY-269 phase 3 (2026-10-30), web + phone only: the cast in a row that scrolls sideways like the episodes row; "More
+   on Joey" posters (120 px); skeleton shapes while the deferred part loads. On the phone 2.3 posters show, so the row
+   reads as scrollable. JY-283 / JY-317 (B. 2026-11-06, "Stop placing them in circles"): no circle cast; every web
+   cast row is the 2:3 `.casttiles` below. */
 html:not(.tv) .castsec .castrow { gap: 16px; scroll-snap-type: x mandatory; }
 html:not(.tv) .castsec .castcard { flex: 0 0 104px; min-height: 44px; }
-html:not(.tv) .castsec .castpic { width: 88px; height: 88px; aspect-ratio: 1; border-radius: 50%; font-size: 24px; }
 html:not(.tv) .castsec .castrole { font-size: 14px; }
 html:not(.tv) .moresec .carousel > * { flex: 0 0 120px; width: 120px; }
 @media (max-width: 639px) {
@@ -1801,9 +1801,13 @@ html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 300px; border-radiu
 html:not(.tv) .makerchips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 html:not(.tv) .makerchip { height: 32px; font-size: 13px; color: var(--text-1); text-decoration: none; }
 html:not(.tv) .makerchip-role { color: var(--text-4); }
-html:not(.tv) .castsec.casttiles .castcard { flex: 0 0 130px; }
+html:not(.tv) .castsec.casttiles .castcard { flex: 0 0 calc((100% - 48px) / 3.5); align-items: stretch; text-align: left; }
 html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 4px; font-size: 32px; }
-@media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 160px; } }
+/* JY-283 / JY-317 (2026-11-06): the TV's JY-323 tile scaled for the web - about 3.5 across a 390 phone, 88 px from 640
+   (about 8 across the 784 px main column at 1440, beside the scores column); the name on up to two lines, the role on one. */
+html:not(.tv) .castsec.casttiles .castname { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html:not(.tv) .castsec.casttiles .castrole { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 88px; } }
 @media (max-width: 1024px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: min(64vh, 720px); }
   html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 230px; }
@@ -1821,9 +1825,14 @@ html:not(.tv) .filmcols { display: grid; gap: 20px; min-width: 0; }
 html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
+/* JY-317 (B. 2026-11-06, "the rating column sitting on the right hand side as a smaller side bar"): a show / season page
+   takes the same columns with a narrower 300 px right-hand column (Scores, Details, File) beside the Episodes row and
+   the cast; the Episodes head wraps in the narrower main column. Stacked below 1024 px. */
+@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 300px; } }
+html:not(.tv) .tlcols .tl-epshd { flex-wrap: wrap; }
 /* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
-@media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
-@media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
+@media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 104px; } }
+@media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 120px; } }
 /* JY-304 option C (B. 2026-11-04, every .carousel shelf off the TV): a scroll cue. (1) Half a card always peeks at the
    right edge - each width shows N and a half cards, never smaller than the old fixed cards (104 / 144 / 184 / 216 px; if the
    floor wins the peek is whatever the row leaves) (3.5 phone, 5.5 from 640, 6.5 from 1200, 9.5 from 1920, 11.5 from

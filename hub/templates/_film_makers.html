@@ -6,17 +6,24 @@
    the guest front (JY-251). #}
 {% from "_film_macros.html" import makercards with context %}
 {# JY-280 (P1): a film off the TV - Director and Writer chips under the facts line, each one link to the person page
-   (a name search when there is no TMDB id); the headshot cards stay for shows and the TV. #}
+   (a name search when there is no TMDB id); the headshot cards stay for the TV (JY-317: shows, seasons and episodes take chips). #}
 {% if film.kind == "movie" and not tv_mode(request) %}
 {% if film.chips %}<div class="makerchips">{% for m in film.chips %}<a class="chip makerchip" href="{{ m.href }}"><span class="makerchip-role">{{ m.role }}</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}
-{% elif film.makers %}<div class="makers">
-  <div class="microlabel">{{ film.makers_label }}</div>
+{% elif film.makers %}
+{# JY-317 (Plan 2 phase 2.5, B. 2026-11-06: "Stop placing them in circles. For shows and movies."): a show / season page
+   off the TV draws Created by as the film's chips ("Creator <name>") in place of the headshot cards; the creators'
+   Follow buttons stay under them #}
+{# JY-316 round 3 (2026-11-06): episode pages too - no headshot circles off the TV #}
+{% set webchips = film.kind == "tv" and not tv_mode(request) %}
+{% set creators = film.makers | selectattr("id") | list if film.kind == "tv" else [] %}
+{% if webchips %}<div class="makerchips">{% for m in film.makers %}<a class="chip makerchip" href="{{ '/media/person/' ~ m.id if m.id else '/media/person/find?name=' ~ (m.name|urlencode) }}"><span class="makerchip-role">Creator</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}
+{% if not webchips or (creators and not guest()) %}<div class="makers">
+  {% if not webchips %}<div class="microlabel">{{ film.makers_label }}</div>
   <div class="makerrow">
   {{ makercards(film.makers) }}
-  </div>
-  {% set creators = film.makers | selectattr("id") | list if film.kind == "tv" else [] %}
+  </div>{% endif %}
   {% if creators and not guest() %}{% set on = followed("person") %}{# JY-251: no household follow state or Follow on the guest front (Q19) #}
   <div class="followform">{% for m in creators %}{% if m.id in on %}<span class="st-good">Following {{ m.name }} ✓</span>{% else %}<form method="post" hx-swap="innerHTML show:none" action="/media/follow/person/{{ m.id }}"><input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ m.name }}"><input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">Follow {{ m.name }}</button></form>{% endif %}{% endfor %}</div>
   {% endif %}
-</div>
+</div>{% endif %}
 {% endif %}

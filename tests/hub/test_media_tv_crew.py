@@ -57,9 +57,11 @@ def test_show_page_has_directed_by_cards_like_a_film(env, monkeypatch):
         show_page = main_of(client.get("/media/item/ser1").text)
         ep_page = main_of(client.get("/media/item/ep3").text)
         film_page = main_of(client.get("/media/item/mov1").text)
-    assert makers(show_page, "Directed by") == ["Dir A", "Dir B"]       # most episodes first
-    assert 'class="makers makers-directors"' in show_page
-    assert 'src="/img/jf:person-a?h=' in show_page                          # Dir A's Jellyfin headshot
+    # JY-317 (B. 2026-11-06, "Stop placing them in circles. For shows and movies."): the show's directors are the film's
+    # chips ("Director <name>") under the facts line, no headshot cards
+    row = show_page.split('<div class="makerchips makers-directors">', 1)[1].split("</div>", 1)[0]
+    assert re.findall(r'<span class="makerchip-role">Director</span>([^<]+)</a>', row) == ["Dir A", "Dir B"]   # most episodes first
+    assert makers(show_page, "Directed by") is None and 'src="/img/jf:person-a?h=' not in show_page
     assert 'href="/media/person/find?name=Dir%20A"' in show_page                  # no TMDB person id → person-find link
     assert makers(ep_page, "Directed by") is None and "makers-directors" not in ep_page
     assert "makers-directors" not in film_page and 'class="makerchips"' in film_page   # JY-280: the film's own chips

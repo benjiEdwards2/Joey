@@ -93,6 +93,8 @@ def test_show_page_own_rating_beats_avg_and_season_page_has_none(env):
         b = main_of(whole(client, "/media/item/ser1"))
         assert ">avg<" not in b and "Your rating: 9 out of 10" in b
         s = main_of(whole(client, "/media/item/sea1"))
+    # JY-316 d (2026-11-06): a season page still never shows the SHOW mean; its own pill is the season's episode mean
+    # (media_db.season_average), none here as no episode of the season is rated (tests/hub/test_season_page_jy316.py)
     assert ">avg<" not in s
 
 

@@ -183,13 +183,14 @@ def test_a_rating_equal_to_the_average_says_neither_above_nor_below():
 
 
 # ---- season: head switch + strip + rated rows ----
-def test_season_head_has_the_season_switch_with_the_current_one_marked():
+def test_season_head_has_no_second_seasons_row_off_the_tv():
+    # JY-316 round 2 (B. 2026-11-06: "the seasons would be along the row of pills. And shows would be under that.
+    # Allowing the removal of the all seasons row which is not needed."): was the hero's S1 / S2 switch; off the TV the
+    # Episodes row's chips are the one season selector, so the season head draws no switch (the TV keeps it)
     h = head(season())
-    sw = re.search(r'<nav class="seg seasonseg" aria-label="Seasons">(.*?)</nav>', h, re.S).group(1)
-    assert re.findall(r'<a href="([^"]+)"( class="on" aria-current="page")?>S(\d)</a>', sw) == \
-        [("/media/item/season1", "", "1"), ("/media/item/season2", ' class="on" aria-current="page"', "2"),
-         ("/media/item/season3", "", "3")]
-    assert h.index("seasonseg") > h.index("hero-detail-title")                        # in the text column, under the title
+    assert "seasonseg" not in h
+    tpl = (Path(media_film.__file__).resolve().parent / "templates" / "media_film.html").read_text(encoding="utf-8")
+    assert "{% if epnav and tvm %}{{ ef.seasonswitch(epnav) }}{% endif %}" in tpl
     assert "crumbs" not in h and "S2<span" not in h                                   # crumbs and the episode eyebrow are the episode page's
 
 
@@ -199,7 +200,6 @@ def test_season_head_says_which_season_above_the_title():
     h = head(season())
     assert '<p class="epeyebrow">Season 2 of 3</p>' in h
     assert h.index("epeyebrow") < h.index("hero-detail-title")
-    assert h.index("epeyebrow") < h.index("seasonseg")
 
 
 def test_a_one_season_show_reads_season_1_of_1_and_has_no_switch():

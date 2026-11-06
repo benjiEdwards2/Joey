@@ -192,7 +192,7 @@ class PlayerSupportTest {
         assertEquals("Direct play", PlayerText.method("direct"))
         assertEquals("Remux", PlayerText.method("remux"))
         assertEquals("Transcode", PlayerText.method("transcode"))
-        assertEquals("Resumed at 23:41", PlayerText.resumed(1_421_000))
+        assertEquals("Resumed from 23:41 · 20m left", PlayerText.resumed(1_421_000, 2_640_000))
         assertEquals("First frame 2.3 s after Play", PlayerText.firstFrame(2_340))
         assertEquals("Next episode in 5 s", PlayerText.countdown(5))
     }
@@ -215,6 +215,49 @@ class PlayerSupportTest {
         assertEquals("", PlayerText.pageTitle("Joey Media"))
         assertEquals("", PlayerText.pageTitle("https://media.joeyhome.net/media/item/x"))
         assertEquals("", PlayerText.pageTitle(null))
+    }
+
+    // ---- JY-307 P5: the resume line and the title block ----
+
+    @Test
+    fun theResumeLineSaysWhereAndHowMuchIsLeft() {
+        assertEquals("Resumed from 42:10 · 1h 16m left", PlayerText.resumed(2_530_000, 7_080_000))
+        assertEquals("Resumed from 42:10", PlayerText.resumed(2_530_000, null))
+        assertEquals("Resumed from 42:10", PlayerText.resumed(2_530_000, 2_000_000))   // past a wrong duration
+        assertEquals("Resumed from 0:20 · 1m left", PlayerText.resumed(20_000, 50_000))
+    }
+
+    @Test
+    fun spansRoundUpToTheMinute() {
+        assertEquals("1h 58m", PlayerText.span(7_080_000))
+        assertEquals("2h", PlayerText.span(7_200_000))
+        assertEquals("48m", PlayerText.span(2_880_000))
+        assertEquals("1m", PlayerText.span(1))
+        assertEquals("0m", PlayerText.span(0))
+    }
+
+    @Test
+    fun anEpisodeShowsSeasonAndEpisodeOverTheShowAndTheEpisodeName() {
+        assertEquals(TitleBlock("S2 · E5", "Harbour Lights", "Low Tide"),
+            PlayerText.titleBlock("Harbour Lights", "S2 · E5 · Low Tide", null, 3_000_000, "Low Tide · Joey Media"))
+        assertEquals(TitleBlock("S10 · E12", "Show", "A · B"), PlayerText.titleBlock("Show", "S10 · E12 · A · B", null, null, null))
+        // an episode without numbers: no eyebrow, the name as the line
+        assertEquals(TitleBlock(null, "Harbour Lights", "Low Tide"), PlayerText.titleBlock("Harbour Lights", "Low Tide", null, null, null))
+    }
+
+    @Test
+    fun aFilmShowsYearAndRuntimeAsTheEyebrowAndNoLine() {
+        assertEquals(TitleBlock("2019 · 1h 58m", "Library Film", null), PlayerText.titleBlock("Library Film", null, "2019", 7_080_000, null))
+        assertEquals(TitleBlock("2019", "Library Film", null), PlayerText.titleBlock("Library Film", null, "2019", null, null))
+        assertEquals(TitleBlock("1h 58m", "Library Film", null), PlayerText.titleBlock("Library Film", " ", null, 7_080_000, null))
+        assertEquals(TitleBlock(null, "Library Film", null), PlayerText.titleBlock("Library Film", null, null, 0, null))
+    }
+
+    @Test
+    fun missingWordsFallBackToThePageTitleNeverBlankOrACrash() {
+        assertEquals(TitleBlock(null, "Library Film", null), PlayerText.titleBlock(null, null, null, 7_080_000, "Library Film · Joey Media"))
+        assertEquals(TitleBlock(null, "Library Film", null), PlayerText.titleBlock("  ", "S1 · E1 · x", "2019", null, "Library Film · Joey"))
+        assertEquals(TitleBlock(null, "", null), PlayerText.titleBlock(null, null, null, null, null))
     }
 
     @Test

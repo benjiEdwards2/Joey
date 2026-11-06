@@ -20,8 +20,11 @@ data class PlayTrack(
 
 data class Chapter(val name: String, val startMs: Long)
 
-/** JY-057's additive `up_next`: the next aired episode, from the hub's cache. */
-data class UpNext(val itemId: String, val label: String, val runtime: String?)
+/**
+ * JY-057's additive `up_next`: the next aired episode, from the hub's cache. [still] (JY-307 P5) is the hub's image ref
+ * `jf:<32 hex>` for the up-next tile, or null (a plain tile).
+ */
+data class UpNext(val itemId: String, val label: String, val runtime: String?, val still: String? = null)
 
 data class StartAnswer(
     val sessionId: String,
@@ -37,6 +40,10 @@ data class StartAnswer(
     val resumed: Boolean,
     val chapters: List<Chapter>,
     val upNext: UpNext?,
+    /** JY-307 P5 (additive, cache only): the title block's words; all null on a cold cache or an older hub. */
+    val title: String? = null,
+    val line: String? = null,
+    val year: String? = null,
 )
 
 /** The stream hand-out. [authorization] is the member's full Jellyfin token: memory only, never printed. */
@@ -65,11 +72,17 @@ object PlayerApi {
     private val SESSION_ID = Regex("^[A-Za-z0-9_-]{8,64}$")
     private val ITEM_ID = Regex("^[0-9a-f]{32}$")
     private val TAILS = setOf("stream", "progress", "stop")
+    private val STILL = Regex("^jf:[0-9a-f]{32}$")
+    /** The /img proxy height the up-next still is asked at (a size the proxy serves; decoded down to the tile). */
+    const val STILL_H = 240
     /** `ApiKey` / `api_key`, compared without underscores (so no key-shaped literal sits in the APK: tv_version.py scan). */
     private const val KEY_PARAM = "apikey"
 
     fun sessionPath(sessionId: String, tail: String): String? =
         if (SESSION_ID.matches(sessionId) && tail in TAILS) "$START_PATH/$sessionId/$tail" else null
+
+    /** JY-307 P5: the up-next still through the hub's existing /img proxy on the UI origin, or null for anything else. */
+    fun stillPath(still: String?): String? = still?.takeIf { STILL.matches(it) }?.let { "/img/$it?h=$STILL_H" }
 
     fun startBody(itemId: String, profile: JSONObject, startMs: Long?, audioIndex: Int?, subtitleIndex: Int?, resume: Boolean): String {
         val body = JSONObject()
@@ -110,8 +123,11 @@ object PlayerApi {
             upNext = o.optJSONObject("up_next")?.let { u ->
                 val id = str(u, "item_id")?.takeIf { ITEM_ID.matches(it) }
                 val label = str(u, "label")
-                if (id != null && label != null) UpNext(id, label, str(u, "runtime")) else null
+                if (id != null && label != null) UpNext(id, label, str(u, "runtime"), str(u, "still")?.takeIf { STILL.matches(it) }) else null
             },
+            title = str(o, "title"),
+            line = str(o, "line"),
+            year = str(o, "year"),
         )
     }
 

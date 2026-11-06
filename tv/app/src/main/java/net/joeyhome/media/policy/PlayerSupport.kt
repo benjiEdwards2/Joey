@@ -147,6 +147,9 @@ object DeviceProfile {
 }
 
 /** The player's words (look A), in Joey's plain style. */
+/** JY-307 P5: the player's title block, bottom left: [eyebrow] (amber, small caps), [title], [line] (episode name). */
+data class TitleBlock(val eyebrow: String?, val title: String, val line: String?)
+
 object PlayerText {
     fun time(ms: Long): String {
         val total = ms.coerceAtLeast(0L) / 1_000L
@@ -165,7 +168,43 @@ object PlayerText {
         else -> "Transcode"
     }
 
-    fun resumed(ms: Long) = "Resumed at ${time(ms)}"
+    /**
+     * JY-307 P5: the line under the title for 4 s after a resumed start, "Resumed from 42:10 · 1h 16m left"; without a
+     * known duration (or past it) just "Resumed from 42:10".
+     */
+    fun resumed(startMs: Long, durationMs: Long?): String {
+        val head = "Resumed from ${time(startMs)}"
+        return if (durationMs != null && durationMs > startMs) "$head · ${span(durationMs - startMs)} left" else head
+    }
+
+    /** A length in words, rounded up to the minute: "1h 16m", "2h", "48m", "1m". */
+    fun span(ms: Long): String {
+        val minutes = (ms.coerceAtLeast(0L) + 59_999L) / 60_000L
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0L -> "${m}m"
+            m == 0L -> "${h}h"
+            else -> "${h}h ${m}m"
+        }
+    }
+
+    private val SEASON_EPISODE = Regex("^(S\d+ · E\d+) · (.+)$")
+
+    /**
+     * JY-307 P5: the title block from the start answer's cached words. An episode ("S2 · E5 · Name"): eyebrow "S2 · E5",
+     * title the show, line the episode name. A film: eyebrow "2019 · 1h 58m" (what is known), no line. No cached title
+     * (a cold cache, an older hub): today's page title alone, never blank words or a crash.
+     */
+    fun titleBlock(title: String?, line: String?, year: String?, runtimeMs: Long?, pageTitle: String?): TitleBlock {
+        val t = title?.trim()?.takeIf { it.isNotEmpty() } ?: return TitleBlock(null, pageTitle(pageTitle), null)
+        val l = line?.trim()?.takeIf { it.isNotEmpty() }
+        val se = l?.let { SEASON_EPISODE.matchEntire(it) }
+        if (se != null) return TitleBlock(se.groupValues[1], t, se.groupValues[2].trim())
+        if (l != null) return TitleBlock(null, t, l)
+        val film = listOfNotNull(year?.trim()?.takeIf { it.isNotEmpty() }, runtimeMs?.takeIf { it > 0 }?.let { span(it) })
+        return TitleBlock(film.joinToString(" · ").takeIf { it.isNotEmpty() }, t, null)
+    }
 
     fun firstFrame(ms: Long) = String.format(Locale.ROOT, "First frame %.1f s after Play", ms.coerceAtLeast(0L) / 1_000.0)
 

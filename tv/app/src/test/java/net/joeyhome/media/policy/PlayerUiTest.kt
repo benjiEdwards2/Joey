@@ -232,6 +232,31 @@ class PlayerUiTest {
 
     // ---- auto-hide, up next, the countdown ----
 
+    // ---- JY-307 P5: timings pinned unchanged; a resumed start shows the controls for the resume line's 4 s ----
+
+    @Test
+    fun theTimingsAreUnchanged() {
+        assertEquals(5_000L, PlayerUi.HIDE_AFTER_MS)
+        assertEquals(60_000L, PlayerUi.UP_NEXT_LEAD_MS)
+        assertEquals(8_000L, PlayerUi.COUNTDOWN_MS)
+        assertEquals(10_000L, PlayerUi.SEEK_BACK_MS)
+        assertEquals(30_000L, PlayerUi.SEEK_FORWARD_MS)
+    }
+
+    @Test
+    fun aResumedStartShowsTheControlsForAtLeastFourSeconds() {
+        val s = PlayerUi.resumedStart(hidden.copy(lastInputMs = 0L), t0)
+        assertEquals(PlayerOverlay.CONTROLS, s.overlay)
+        assertEquals(PlayerOverlay.CONTROLS, PlayerUi.onTick(s, t0 + 4_000, true, 60_000, 3_600_000).state.overlay)
+        assertEquals(PlayerOverlay.NONE, PlayerUi.onTick(s, t0 + 5_000, true, 60_000, 3_600_000).state.overlay)
+        // the focus row and button are kept; an open pop-up or up-next card is left alone
+        assertEquals(start.copy(lastInputMs = t0 + 1), PlayerUi.resumedStart(start, t0 + 1))
+        val popup = start.copy(overlay = PlayerOverlay.POPUP)
+        assertEquals(popup, PlayerUi.resumedStart(popup, t0 + 1))
+        val card = start.copy(overlay = PlayerOverlay.UP_NEXT)
+        assertEquals(card, PlayerUi.resumedStart(card, t0 + 1))
+    }
+
     @Test
     fun theControlsHideAfterFiveSecondsOfPlaying() {
         val s = start.copy(lastInputMs = t0)

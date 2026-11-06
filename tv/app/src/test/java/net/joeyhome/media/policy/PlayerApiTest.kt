@@ -76,6 +76,49 @@ class PlayerApiTest {
         }
     }
 
+    // ---- JY-307 P5: the title block words and the up-next still (additive) ----
+
+    @Test
+    fun theTitleBlockWordsAndTheStillParse() {
+        val a = PlayerApi.parseStart("""{"session_id": "$sid", "item_id": "$item", "play_method": "direct",
+            "title": "Harbour Lights", "line": "S2 · E2 · Low Tide", "year": null,
+            "up_next": {"item_id": "$next", "label": "S2 · E3 · The Breakwater", "runtime": "48m", "still": "jf:$next"}}""")!!
+        assertEquals("Harbour Lights", a.title)
+        assertEquals("S2 · E2 · Low Tide", a.line)
+        assertNull(a.year)
+        assertEquals(UpNext(next, "S2 · E3 · The Breakwater", "48m", "jf:$next"), a.upNext)
+        val film = PlayerApi.parseStart("""{"session_id": "$sid", "item_id": "$item", "play_method": "direct",
+            "title": "Library Film", "line": null, "year": "2019"}""")!!
+        assertEquals(Triple("Library Film", null, "2019"), Triple(film.title, film.line, film.year))
+    }
+
+    @Test
+    fun anOlderAnswerWithoutTheNewFieldsStillParses() {
+        val a = PlayerApi.parseStart(start)!!
+        assertNull(a.title)
+        assertNull(a.line)
+        assertNull(a.year)
+        assertNull(a.upNext!!.still)
+    }
+
+    @Test
+    fun aStillThatIsNotAJellyfinRefIsDropped() {
+        for (bad in listOf("jfs:$next/logo", "https://example.invalid/x.jpg", "jf:../../x", "jf:$next?h=1", "")) {
+            val a = PlayerApi.parseStart("""{"session_id": "$sid", "item_id": "$item", "play_method": "direct",
+                "up_next": {"item_id": "$next", "label": "x", "still": "$bad"}}""")!!
+            assertEquals(bad, next, a.upNext!!.itemId)
+            assertNull(bad, a.upNext!!.still)
+        }
+    }
+
+    @Test
+    fun theStillGoesThroughTheImgProxyAtAServedHeight() {
+        assertEquals("/img/jf:$next?h=240", PlayerApi.stillPath("jf:$next"))
+        assertNull(PlayerApi.stillPath(null))
+        assertNull(PlayerApi.stillPath("jfs:$next/1"))
+        assertNull(PlayerApi.stillPath("jf:$next/../x"))
+    }
+
     @Test
     fun aBadUpNextIsDroppedNotFatal() {
         val a = PlayerApi.parseStart("""{"session_id": "$sid", "item_id": "$item", "play_method": "direct",

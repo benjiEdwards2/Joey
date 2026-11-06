@@ -161,3 +161,18 @@ def test_round3_episode_page_has_no_circle_headshots_off_the_tv(env, monkeypatch
     assert "makerpic" not in b and "guest-pic" not in b and "makercard" not in b
     assert '<span class="makerchip-role">Creator</span>' in b
     assert "Gus Guest" in b and 'class="sec castsec casttiles" id="guests"' in b
+
+
+def test_round3_details_runtime_row_keeps_the_ends_time():
+    """JY-316 r3 review: the Runtime row in Details keeps the old stat's "ends HH:MM if you start now"."""
+    from types import SimpleNamespace
+    from hub.shell import templates
+    film = {"title": "Bare", "year": 2001, "kind": "tv", "tmdb": 9, "pending": set(), "facts": {},
+            "numbers": {"runtime": "45m", "ends": "21:40"}, "official": "M",
+            "logos": {"imdb": "/i.svg", "tmdb": "/t.svg", "lbxd": "/l.svg"}, "rating": None, "watch_count": 0}
+    src = templates.env.get_template("media_film.html")
+    ctx = src.new_context({"film": film, "request": SimpleNamespace(url=SimpleNamespace(path="/media/title/tv/9")),
+                           "img_letters": lambda s: s, "status_of": lambda w: {"cls": ""}})
+    html = "".join(src.blocks["content"](ctx))
+    assert "<dt>Runtime</dt><dd>45m · ends 21:40 if you start now</dd>" in html
+    assert "<dt>Rated</dt><dd>M</dd>" in html and '<div class="stats numbers">' not in html

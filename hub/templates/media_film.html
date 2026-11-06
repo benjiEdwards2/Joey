@@ -369,7 +369,7 @@
     {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
     {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
     {% if sites_row %}<div class="kv"><dt>Links</dt><dd class="sitepills">{{ sitepills() }}</dd></div>{% endif %}
-    {% if tvweb and n.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ n.runtime }}</dd></div>{% endif %}
+    {% if tvweb and n.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ n.runtime }}{% if n.ends %} · ends {{ n.ends }} if you start now{% endif %}</dd></div>{% endif %}
     {% if tvweb and film.official %}<div class="kv"><dt>Rated</dt><dd>{{ film.official }}</dd></div>{% endif %}
     {% if tvlinks %}<div class="kv"><dt>Links</dt><dd class="sitepills">{% with slot = "links" %}{% call wait("scores", film.pending, "links") %}{% include "_film_scores.html" %}{% endcall %}{% endwith %}</dd></div>{% endif %}
   </dl>

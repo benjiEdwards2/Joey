@@ -3,6 +3,8 @@ package net.joeyhome.media
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaCodecList
 import android.net.Uri
 import android.os.Build
@@ -16,6 +18,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebSettings
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -74,12 +77,15 @@ import org.json.JSONObject
  * Joey Media front (docs/playback-contract.md, kind `tv`), plays the stream from the Jellyfin edge with the member's
  * header (memory only, sent to the Jellyfin origin only), reports progress, and returns to Joey on Back. Any start
  * failure hands the item to the Jellyfin app (JY-050 Q7 A). The overlay's state and keys are PlayerUi (pure, JVM-tested).
+ * JY-307 phase 5 (option B): the overlay is one left-aligned bottom block at the P2b scale (title block from the start
+ * answer's cached words, time line, thin bar, icon buttons with the label on focus), fading in and out in [FADE_MS].
  */
 @OptIn(UnstableApi::class)
 class PlayerActivity : Activity() {
 
     private val main = Handler(Looper.getMainLooper())
     private val io: ExecutorService = Executors.newSingleThreadExecutor()
+    private val images: ExecutorService = Executors.newSingleThreadExecutor()   // the up-next still: never queues behind a report
 
     private lateinit var prefs: Prefs
     private lateinit var hosts: HostConfig
@@ -109,6 +115,7 @@ class PlayerActivity : Activity() {
     private var loading = true
     private var lastBackAt = 0L
     private var backCallback: Any? = null
+    private var stillFor: String? = null   // the up-next item whose still was asked for (once per episode)
 
     private val tick = object : Runnable {
         override fun run() {
@@ -170,6 +177,7 @@ class PlayerActivity : Activity() {
         releasePlayer()
         stream = null
         io.shutdown()   // a queued stop still goes out
+        images.shutdownNow()
         super.onDestroy()
     }
 
@@ -247,7 +255,10 @@ class PlayerActivity : Activity() {
             },
             answer.audio.map { it.index }, answer.subtitles.map { it.index }, audioIndex, subtitleIndex,
         )
-        if (answer.resumed) resumedUntil = SystemClock.uptimeMillis() + RESUMED_SHOW_MS
+        if (answer.resumed) {
+            resumedUntil = SystemClock.uptimeMillis() + RESUMED_SHOW_MS
+            ui = PlayerUi.resumedStart(ui, SystemClock.uptimeMillis())   // the controls carry the resume line (JY-307 P5)
+        }
         play(answer, handOut)
         render()
     }
@@ -549,39 +560,91 @@ class PlayerActivity : Activity() {
         val p = player
         val controls = ui.overlay == PlayerOverlay.CONTROLS || ui.overlay == PlayerOverlay.POPUP
         view<TextView>(R.id.player_loading).visibility = vis(loading && !leaving)
-        view<View>(R.id.player_top).visibility = vis(controls)
-        view<View>(R.id.player_bottom).visibility = vis(controls)
-        view<TextView>(R.id.player_title).text = PlayerText.pageTitle(pageTitle)
-        view<TextView>(R.id.player_meta).text = listOfNotNull(
-            s?.let { PlayerText.method(it.playMethod) }, firstFrameMs?.let { PlayerText.firstFrame(it) },
-        ).joinToString(" · ")
-        view<TextView>(R.id.player_resumed).apply {
-            visibility = vis(now < resumedUntil && s != null)
-            text = s?.let { PlayerText.resumed(it.startMs) }.orEmpty()
-        }
+        fade(view(R.id.player_bottom), controls)
         val dur = p?.let { duration(it) } ?: -1L
         val pos = position()
+        val words = PlayerText.titleBlock(s?.title, s?.line, s?.year, s?.runtimeMs, pageTitle)
+        setText(R.id.player_eyebrow, words.eyebrow)
+        view<TextView>(R.id.player_title).text = words.title
+        val resumedLine = if (now < resumedUntil && s != null) PlayerText.resumed(s.startMs, dur.takeIf { it > 0 } ?: s.runtimeMs) else null
+        setText(R.id.player_line, resumedLine ?: words.line)
         view<TextView>(R.id.player_time).text = PlayerText.progress(pos, dur)
         view<TextView>(R.id.player_chapter).text = s?.let { PlayerText.chapter(it.chapters, pos) }.orEmpty()
+        // Q3 default: the diagnostic words only while paused, muted, at the end of the time line
+        val paused = p?.playWhenReady == false
+        setText(R.id.player_meta, if (!paused) null else listOfNotNull(
+            s?.let { PlayerText.method(it.playMethod) }, firstFrameMs?.let { PlayerText.firstFrame(it) },
+        ).joinToString(" · ").takeIf { it.isNotEmpty() })
         bar.isActivated = ui.overlay == PlayerOverlay.CONTROLS && ui.row == FocusRow.BAR
+        bar.isSelected = bar.isActivated   // `selected` mirrors the ring for uiautomator (tv/tools/player_audit.py)
         bar.update(dur.coerceAtLeast(0L), pos, p?.bufferedPosition ?: 0L, s?.chapters?.map { it.startMs } ?: emptyList())
-        val buttons = mapOf(
-            PlayerButton.PLAY_PAUSE to R.id.player_btn_play, PlayerButton.BACK_10 to R.id.player_btn_back,
-            PlayerButton.FORWARD_30 to R.id.player_btn_forward, PlayerButton.TRACKS to R.id.player_btn_tracks,
-            PlayerButton.NEXT to R.id.player_btn_next,
-        )
-        for ((b, id) in buttons) {
-            view<TextView>(id).isActivated = ui.overlay == PlayerOverlay.CONTROLS && ui.row == FocusRow.BUTTONS && ui.button == b
+        for ((b, id) in BUTTONS) {
+            val on = ui.overlay == PlayerOverlay.CONTROLS && ui.row == FocusRow.BUTTONS && ui.button == b
+            renderButton(view(id), on, b, paused)
         }
         view<View>(R.id.player_btn_next).visibility = vis(ui.hasNext)
-        view<TextView>(R.id.player_btn_play).setText(if (p?.playWhenReady == false) R.string.player_play else R.string.player_pause)
         renderPopup(s)
         renderUpNext(s, now)
     }
 
+    /** A text view that is gone when it has nothing to say (no blank line in the block). */
+    private fun setText(id: Int, text: String?) {
+        val v = view<TextView>(id)
+        v.text = text.orEmpty()
+        v.visibility = vis(!text.isNullOrEmpty())
+    }
+
+    /**
+     * JY-307 P5: an icon-only round button; the focused one (white pill, ink icon) widens to show its label. Play / Pause
+     * swaps its icon and words with the player.
+     */
+    private fun renderButton(v: TextView, on: Boolean, b: PlayerButton, paused: Boolean) {
+        val label = when (b) {
+            PlayerButton.PLAY_PAUSE -> if (paused) R.string.player_play else R.string.player_pause
+            PlayerButton.BACK_10 -> R.string.player_back_10
+            PlayerButton.FORWARD_30 -> R.string.player_forward_30
+            PlayerButton.TRACKS -> R.string.player_tracks
+            PlayerButton.NEXT -> R.string.player_next
+        }
+        val icon = if (b != PlayerButton.PLAY_PAUSE) 0 else if (paused) R.drawable.ic_player_play else R.drawable.ic_player_pause
+        val key = "$on|$label|$icon"
+        if (v.tag == key) return   // every tick renders: touch the view only when it changes
+        v.tag = key
+        if (icon != 0) v.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
+        v.contentDescription = getString(label)
+        v.isActivated = on
+        v.isSelected = on
+        val pad = resources.getDimensionPixelSize(R.dimen.player_button_pad)
+        if (on) {
+            v.setText(label)
+            v.compoundDrawablePadding = resources.getDimensionPixelSize(R.dimen.player_button_label_gap)
+            v.setPaddingRelative(pad, 0, resources.getDimensionPixelSize(R.dimen.player_button_pad_end_on), 0)
+        } else {
+            v.text = ""
+            v.compoundDrawablePadding = 0
+            v.setPaddingRelative(pad, 0, pad, 0)
+        }
+    }
+
+    /** JY-307 P5: the controls fade in and out in [FADE_MS]; the target rides on the view's tag so a tick never restarts it. */
+    private fun fade(v: View, shown: Boolean) {
+        if (v.tag == shown) return
+        v.tag = shown
+        v.animate().cancel()
+        if (shown) {
+            if (v.visibility != View.VISIBLE) {
+                v.alpha = 0f
+                v.visibility = View.VISIBLE
+            }
+            v.animate().alpha(1f).setDuration(FADE_MS).start()
+        } else if (v.visibility == View.VISIBLE) {
+            v.animate().alpha(0f).setDuration(FADE_MS).withEndAction { if (v.tag == false) v.visibility = View.GONE }.start()
+        }
+    }
+
     private fun renderPopup(s: StartAnswer?) {
         val open = ui.overlay == PlayerOverlay.POPUP && s != null
-        view<View>(R.id.player_popup).visibility = vis(open)
+        fade(view(R.id.player_popup), open)
         if (!open || s == null) return
         val byIndex = (s.audio + s.subtitles).associateBy { it.index }
         fillColumn(R.id.player_audio_list, R.id.player_audio_scroll, ui.audio.map { byIndex[it] },
@@ -604,6 +667,7 @@ class PlayerActivity : Activity() {
             val isPlaying = (t?.index ?: PlayerUi.OFF) == playing
             row.text = if (isPlaying) getString(R.string.player_playing_mark, label) else label
             row.isActivated = active && i == cursor
+            row.isSelected = row.isActivated
         }
         val scroll = view<ScrollView>(scrollId)
         val height = if (tracks.size > MAX_ROWS) MAX_ROWS * rowHeight() else ViewGroup.LayoutParams.WRAP_CONTENT
@@ -618,16 +682,63 @@ class PlayerActivity : Activity() {
     private fun renderUpNext(s: StartAnswer?, now: Long) {
         val next = s?.upNext
         val open = ui.overlay == PlayerOverlay.UP_NEXT && next != null
-        view<View>(R.id.player_upnext).visibility = vis(open)
+        fade(view(R.id.player_upnext), open)
         if (!open || next == null) return
+        if (stillFor != next.itemId) loadStill(next.itemId, next.still)
         view<TextView>(R.id.player_upnext_label).text = next.label
         view<TextView>(R.id.player_upnext_meta).text =
             PlayerUi.countdownLeftS(ui, now)?.let { PlayerText.countdown(it) } ?: next.runtime.orEmpty()
-        view<View>(R.id.player_upnext_play).isActivated = ui.upNextChoice == UpNextChoice.PLAY_NOW
-        view<View>(R.id.player_upnext_credits).isActivated = ui.upNextChoice == UpNextChoice.WATCH_CREDITS
+        for ((id, choice) in listOf(R.id.player_upnext_play to UpNextChoice.PLAY_NOW, R.id.player_upnext_credits to UpNextChoice.WATCH_CREDITS)) {
+            view<View>(id).apply {
+                isActivated = ui.upNextChoice == choice
+                isSelected = isActivated
+            }
+        }
     }
 
-    private fun rowHeight(): Int = (56 * resources.displayMetrics.density).toInt()
+    /**
+     * JY-307 P5: the next episode's still, once per episode when the card first opens, through the hub's /img proxy on
+     * the UI origin (the WebView's cookies, as every hub call). A missing or failed still leaves the plain tile.
+     */
+    private fun loadStill(nextId: String, still: String?) {
+        stillFor = nextId
+        val tile = view<ImageView>(R.id.player_upnext_still)
+        tile.setImageDrawable(null)
+        val path = PlayerApi.stillPath(still) ?: return
+        val w = resources.getDimensionPixelSize(R.dimen.player_upnext_tile)
+        val h = resources.getDimensionPixelSize(R.dimen.player_upnext_tile_h)
+        images.execute {
+            val bitmap = api.image(path)?.let { decode(it, w, h) } ?: return@execute
+            main.post {
+                if (stillFor == nextId && !isDestroyed) tile.setImageBitmap(bitmap) else bitmap.recycle()
+            }
+        }
+    }
+
+    /** Decoded small (inSampleSize), then scaled to cover and centre-cropped to exactly the tile: w x h px, <= 0.5 MB. */
+    private fun decode(bytes: ByteArray, w: Int, h: Int): Bitmap? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= w && bounds.outHeight / (sample * 2) >= h) sample *= 2
+        val raw = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+        raw?.let {
+            val scale = maxOf(w.toFloat() / it.width, h.toFloat() / it.height)
+            val sw = maxOf(w, Math.round(it.width * scale))
+            val sh = maxOf(h, Math.round(it.height * scale))
+            val scaled = if (sw == it.width && sh == it.height) it else Bitmap.createScaledBitmap(it, sw, sh, true)
+            val out = Bitmap.createBitmap(scaled, (sw - w) / 2, (sh - h) / 2, w, h)
+            if (scaled !== it) it.recycle()
+            if (out !== scaled) scaled.recycle()
+            out
+        }
+    } catch (e: RuntimeException) {
+        null
+    } catch (e: OutOfMemoryError) {
+        null
+    }
+
+    private fun rowHeight(): Int = resources.getDimensionPixelSize(R.dimen.player_row)
 
     private fun vis(shown: Boolean) = if (shown) View.VISIBLE else View.GONE
 
@@ -653,6 +764,12 @@ class PlayerActivity : Activity() {
         private const val HTTP_CONNECT_MS = 15_000L
         private const val HTTP_READ_MS = 30_000L
         private const val MAX_ROWS = 6
+        private const val FADE_MS = 150L
+        private val BUTTONS = listOf(
+            PlayerButton.PLAY_PAUSE to R.id.player_btn_play, PlayerButton.BACK_10 to R.id.player_btn_back,
+            PlayerButton.FORWARD_30 to R.id.player_btn_forward, PlayerButton.TRACKS to R.id.player_btn_tracks,
+            PlayerButton.NEXT to R.id.player_btn_next,
+        )
         private const val TAG = "JoeyPlayer"
         private val REPEATABLE = setOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,

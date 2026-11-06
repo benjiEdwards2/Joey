@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- JY-057 Joey TV player, look A "Classic overlay" (JY-052): the picture full-bleed; the title block (the page's title,
-     the method word, the first-frame time) top left, the resume
-     note top right; the chapter + time line, the seek bar and one row of buttons at the bottom; the Audio & subtitles
-     pop-up above the row; the up-next card bottom right. Visibility and the focus ring come from PlayerUi's state. -->
+<!-- JY-057 Joey TV player; JY-307 phase 5 (option B) overlay at the P2b scale: the picture full-bleed; one left-aligned
+     block over a bottom gradient (~45 % of the height): the title block (eyebrow, title, line), the chapter + time line,
+     the thin bar, then a row of icon-only round buttons (the focused one shows its label). The Audio & subtitles pop-up
+     sits above the row; the up-next card bottom right. Visibility and the focus ring come from PlayerUi's state. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/player_root"
     android:layout_width="match_parent"
@@ -23,78 +23,55 @@
         android:layout_gravity="center"
         android:text="@string/player_starting" />
 
-    <!-- top: title block (left) and the resume note (right) -->
-    <FrameLayout
-        android:id="@+id/player_top"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:background="@drawable/player_scrim_top"
-        android:paddingStart="@dimen/joey_overscan_x"
-        android:paddingTop="@dimen/joey_overscan_y"
-        android:paddingEnd="@dimen/joey_overscan_x"
-        android:paddingBottom="48dp">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="start|top"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/player_title"
-                style="@style/JoeyPlayerTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxWidth="600dp"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/player_meta"
-                style="@style/JoeyPlayerMethod"
-                android:layout_marginTop="3dp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-    </FrameLayout>
-
-    <TextView
-        android:id="@+id/player_resumed"
-        style="@style/JoeyText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="@dimen/joey_overscan_y"
-        android:layout_marginEnd="@dimen/joey_overscan_x"
-        android:background="@drawable/player_card"
-        android:paddingStart="20dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="10dp"
-        android:visibility="gone" />
-
-    <!-- bottom: chapter + time, the bar (row 1), the buttons (row 2) -->
+    <!-- the bottom block: title block, time line, bar (row 1), buttons (row 2) -->
     <LinearLayout
         android:id="@+id/player_bottom"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:minHeight="@dimen/player_scrim_h"
         android:background="@drawable/player_scrim_bottom"
+        android:gravity="bottom"
         android:orientation="vertical"
-        android:paddingStart="@dimen/joey_overscan_x"
-        android:paddingTop="64dp"
-        android:paddingEnd="@dimen/joey_overscan_x"
-        android:paddingBottom="@dimen/joey_overscan_y">
+        android:paddingStart="@dimen/player_mx"
+        android:paddingEnd="@dimen/player_mx"
+        android:paddingBottom="@dimen/player_my">
+
+        <TextView
+            android:id="@+id/player_eyebrow"
+            style="@style/JoeyPlayerEyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/player_title"
+            style="@style/JoeyPlayerTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="@dimen/player_title_max"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/player_line"
+            style="@style/JoeyPlayerLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="@dimen/player_title_max"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/player_chapter"
-                style="@style/JoeyText.Meta"
+                style="@style/JoeyPlayerLine"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -103,17 +80,27 @@
 
             <TextView
                 android:id="@+id/player_time"
-                style="@style/JoeyText.Meta"
+                style="@style/JoeyPlayerLine"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFeatureSettings="tnum" />
+
+            <!-- Q3 default: the diagnostic words only while paused, muted, at the end of the time line -->
+            <TextView
+                android:id="@+id/player_meta"
+                style="@style/JoeyPlayerMethod"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:maxLines="1"
+                android:visibility="gone" />
         </LinearLayout>
 
         <net.joeyhome.media.PlayerBar
             android:id="@+id/player_bar"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_marginBottom="10dp" />
+            android:layout_height="@dimen/player_bar_row"
+            android:layout_marginBottom="6dp" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -122,55 +109,60 @@
 
             <TextView
                 android:id="@+id/player_btn_play"
-                style="@style/JoeyPlayerChip"
-                android:text="@string/player_pause" />
+                style="@style/JoeyPlayerButton"
+                android:contentDescription="@string/player_pause"
+                android:drawableStart="@drawable/ic_player_pause" />
 
             <TextView
                 android:id="@+id/player_btn_back"
-                style="@style/JoeyPlayerChip"
-                android:text="@string/player_back_10" />
+                style="@style/JoeyPlayerButton"
+                android:contentDescription="@string/player_back_10"
+                android:drawableStart="@drawable/ic_player_back" />
 
             <TextView
                 android:id="@+id/player_btn_forward"
-                style="@style/JoeyPlayerChip"
-                android:text="@string/player_forward_30" />
+                style="@style/JoeyPlayerButton"
+                android:contentDescription="@string/player_forward_30"
+                android:drawableStart="@drawable/ic_player_forward" />
 
             <TextView
                 android:id="@+id/player_btn_tracks"
-                style="@style/JoeyPlayerChip"
-                android:text="@string/player_tracks" />
+                style="@style/JoeyPlayerButton"
+                android:contentDescription="@string/player_tracks"
+                android:drawableStart="@drawable/ic_player_tracks" />
 
             <TextView
                 android:id="@+id/player_btn_next"
-                style="@style/JoeyPlayerChip"
-                android:text="@string/player_next" />
+                style="@style/JoeyPlayerButton"
+                android:contentDescription="@string/player_next"
+                android:drawableStart="@drawable/ic_player_next" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- the Audio & subtitles pop-up, above the button row -->
+    <!-- the Audio & subtitles pop-up, above the button row: two 540 px columns, 84 px rows (max 6) -->
     <LinearLayout
         android:id="@+id/player_popup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
-        android:layout_marginStart="@dimen/joey_overscan_x"
-        android:layout_marginBottom="120dp"
+        android:layout_marginStart="@dimen/player_mx"
+        android:layout_marginBottom="74dp"
         android:background="@drawable/player_card"
         android:orientation="horizontal"
-        android:padding="20dp"
+        android:padding="12dp"
         android:visibility="gone">
 
         <LinearLayout
-            android:layout_width="360dp"
+            android:layout_width="@dimen/player_popup_col"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="@dimen/joey_gap"
+            android:layout_marginEnd="12dp"
             android:orientation="vertical">
 
             <TextView
-                style="@style/JoeyText.Meta"
+                style="@style/JoeyPlayerEyebrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="6dp"
                 android:text="@string/player_audio" />
 
             <ScrollView
@@ -189,15 +181,15 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="360dp"
+            android:layout_width="@dimen/player_popup_col"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
             <TextView
-                style="@style/JoeyText.Meta"
+                style="@style/JoeyPlayerEyebrow"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="6dp"
                 android:text="@string/player_subtitles" />
 
             <ScrollView
@@ -216,68 +208,71 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- the up-next card, bottom right: JY-259 phase 4, the caption over a 16:9 landscape tile (the kit's `land`,
-         400 px wide in the 1920 mock = 200 dp), the label on it, the runtime or countdown under it, then Play now / Watch credits -->
+    <!-- the up-next card, bottom right: "Up next", the 400 x 225 px 16:9 tile with the next episode's still (a plain
+         tile until it loads, or if it fails), the label, the runtime or countdown, then Play now / Watch credits -->
     <LinearLayout
         android:id="@+id/player_upnext"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="@dimen/joey_overscan_x"
-        android:layout_marginBottom="@dimen/joey_overscan_y"
+        android:layout_marginEnd="@dimen/player_mx"
+        android:layout_marginBottom="@dimen/player_my"
         android:background="@drawable/player_card"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:padding="10dp"
         android:visibility="gone">
 
         <TextView
-            style="@style/JoeyText.Meta"
+            style="@style/JoeyPlayerEyebrow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="6dp"
             android:text="@string/player_up_next" />
 
-        <TextView
-            android:id="@+id/player_upnext_label"
-            style="@style/JoeyPlayerTitle"
+        <ImageView
+            android:id="@+id/player_upnext_still"
             android:layout_width="@dimen/player_upnext_tile"
             android:layout_height="@dimen/player_upnext_tile_h"
             android:background="@drawable/player_tile"
-            android:gravity="bottom|start"
-            android:padding="10dp"
-            android:textSize="@dimen/tv_floor"
+            android:importantForAccessibility="no"
+            android:scaleType="centerCrop" />
+
+        <TextView
+            android:id="@+id/player_upnext_label"
+            style="@style/JoeyPlayerLine"
+            android:layout_width="@dimen/player_upnext_tile"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="@color/joey_text_1"
+            android:textSize="@dimen/player_label"
             android:maxLines="2"
             android:ellipsize="end" />
 
         <TextView
             android:id="@+id/player_upnext_meta"
-            style="@style/JoeyText.Meta"
+            style="@style/JoeyPlayerMethod"
             android:layout_width="@dimen/player_upnext_tile"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="6dp"
             android:maxLines="1"
             android:ellipsize="end" />
 
-        <!-- the chips stack at the tile's width so the card never grows past it -->
+        <!-- the chips side by side under the tile -->
         <LinearLayout
-            android:layout_width="@dimen/player_upnext_tile"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/player_upnext_play"
                 style="@style/JoeyPlayerChip"
-                android:layout_width="match_parent"
-                android:layout_marginEnd="0dp"
-                android:layout_marginBottom="4dp"
+                android:layout_marginEnd="4dp"
                 android:text="@string/player_play_now" />
 
             <TextView
                 android:id="@+id/player_upnext_credits"
                 style="@style/JoeyPlayerChip"
-                android:layout_width="match_parent"
-                android:layout_marginEnd="0dp"
                 android:text="@string/player_watch_credits" />
         </LinearLayout>
     </LinearLayout>

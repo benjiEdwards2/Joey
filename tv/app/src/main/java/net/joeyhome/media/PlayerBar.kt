@@ -8,8 +8,9 @@ import android.util.AttributeSet
 import android.view.View
 
 /**
- * JY-057 look A's seek bar on TV: track, buffer, fill, thumb and chapter ticks, with the 4 dp white ring when it is the
- * focused row (`isActivated`, set by PlayerActivity from PlayerUi's state; Android focus is not used in the player).
+ * JY-057 look A's seek bar on TV: track, buffer, fill, thumb and chapter ticks. JY-307 P5 (option B, P2b scale): a thin
+ * 8 px track, a 16 px thumb that grows to 24 px with the 6 px white ring on the thumb only when the bar is the focused
+ * row (`isActivated`, set by PlayerActivity from PlayerUi's state; Android focus is not used in the player).
  */
 class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -18,7 +19,11 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
     var bufferedMs = 0L
     var chapterStartsMs: List<Long> = emptyList()
 
-    private val dp = resources.displayMetrics.density
+    private val trackH = resources.getDimension(R.dimen.player_bar_track)
+    private val thumbD = resources.getDimension(R.dimen.player_bar_thumb)
+    private val thumbOnD = resources.getDimension(R.dimen.player_bar_thumb_on)
+    private val tickW = resources.getDimension(R.dimen.player_bar_tick)
+    private val ringW = resources.getDimension(R.dimen.player_ring)
     private val track = paint(R.color.joey_line)
     private val buffer = paint(R.color.joey_text_4).apply { alpha = 110 }
     private val fill = paint(R.color.joey_primary)
@@ -26,7 +31,7 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
     private val tick = paint(R.color.joey_text_2)
     private val ring = paint(R.color.joey_ring).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4 * dp
+        strokeWidth = ringW
     }
     private val rect = RectF()
 
@@ -42,11 +47,12 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val pad = 14 * dp
+        val gap = ringW / 2   // a dark hairline between the white thumb and its ring, so the ring reads as a ring
+        val pad = thumbOnD / 2 + gap + ringW   // the focused thumb and its ring stay inside the view at both ends
         val left = pad
         val right = width - pad
         val cy = height / 2f
-        val h = 7 * dp // JY-259 phase 4: the mock's 14 px track at 1920
+        val h = trackH
         val span = (right - left).coerceAtLeast(1f)
         fun x(ms: Long): Float = if (durationMs > 0) left + span * (ms.coerceIn(0L, durationMs).toFloat() / durationMs) else left
 
@@ -59,13 +65,10 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
         for (start in chapterStartsMs) {
             if (start <= 0 || durationMs <= 0) continue
             val cx = x(start)
-            canvas.drawRect(cx - 1 * dp, cy - h, cx + 1 * dp, cy + h, tick)
+            canvas.drawRect(cx - tickW / 2, cy - h, cx + tickW / 2, cy + h, tick)
         }
-        val r = if (isActivated) 10 * dp else 7 * dp
+        val r = (if (isActivated) thumbOnD else thumbD) / 2
         canvas.drawCircle(x(positionMs), cy, r, thumb)
-        if (isActivated) {
-            rect.set(2 * dp, 2 * dp, width - 2 * dp, height - 2 * dp)
-            canvas.drawRoundRect(rect, 6 * dp, 6 * dp, ring) // --tv-r
-        }
+        if (isActivated) canvas.drawCircle(x(positionMs), cy, r + gap + ringW / 2, ring)
     }
 }

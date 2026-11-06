@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-307 P5: Next episode, play into a bar (40 px), tinted by the button: white, ink when focused. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/player_icon"
+    android:height="@dimen/player_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M5,5L15,12L5,19Z M16.5,5h2.5v14h-2.5Z" />
+</vector>

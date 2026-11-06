@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-307 P5: Back 10 s, two left chevrons (40 px), tinted by the button: white, ink when focused. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/player_icon"
+    android:height="@dimen/player_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M11.5,5.5L2.5,12L11.5,18.5Z M21.5,5.5L12.5,12L21.5,18.5Z" />
+</vector>

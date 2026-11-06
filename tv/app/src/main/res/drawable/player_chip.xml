@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- JY-057 player buttons and pop-up rows: the focused one (isActivated, set from PlayerUi) gets the 4dp white ring,
-     the same ring as btn_secondary's focused state. Android focus is not used inside the player. -->
+<!-- JY-057 pop-up rows and the up-next chips: the focused one (isActivated, set from PlayerUi) gets the white ring, 6 px at
+     1080 since JY-307 P5 (player_ring), tv-r corners. Android focus is not used inside the player. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_activated="true">
         <layer-list>
@@ -10,13 +10,13 @@
                     <solid android:color="@color/joey_ring" />
                 </shape>
             </item>
-            <item android:bottom="4dp" android:left="4dp" android:right="4dp" android:top="4dp">
+            <item android:bottom="@dimen/player_ring" android:left="@dimen/player_ring" android:right="@dimen/player_ring" android:top="@dimen/player_ring">
                 <shape android:shape="rectangle">
                     <corners android:radius="@dimen/tv_r_sm" />
                     <solid android:color="@color/joey_bg" />
                 </shape>
             </item>
-            <item android:bottom="6dp" android:left="6dp" android:right="6dp" android:top="6dp">
+            <item android:bottom="4dp" android:left="4dp" android:right="4dp" android:top="4dp">
                 <shape android:shape="rectangle">
                     <corners android:radius="@dimen/tv_r_sm" />
                     <solid android:color="@color/joey_surface_2" />
@@ -27,7 +27,7 @@
     </item>
     <item>
         <layer-list>
-            <item android:bottom="6dp" android:left="6dp" android:right="6dp" android:top="6dp">
+            <item android:bottom="4dp" android:left="4dp" android:right="4dp" android:top="4dp">
                 <shape android:shape="rectangle">
                     <corners android:radius="@dimen/tv_r_sm" />
                     <solid android:color="@color/joey_surface_2" />

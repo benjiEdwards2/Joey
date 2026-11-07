@@ -194,3 +194,14 @@ def test_friend_session_loads_the_part(monkeypatch, tmp_path):
         sign_in(c, fake, FRIEND_ID)
         r = c.get("/media/title/movie/603/makers", headers={"User-Agent": TV_UA, "HX-Request": "true"})
     assert r.status_code == 200 and "Request" not in r.text
+
+
+def test_tv_css_lets_the_shelf_show_on_the_title_page():
+    """Review of #337: the TV hides every .filmbody child off its allowlist, so the shelf must be on it."""
+    from pathlib import Path
+    from tests.hub.tv_css import design_px
+    tv = design_px((Path(__file__).resolve().parents[2] / "hub" / "static" / "tv.css").read_text(encoding="utf-8"))
+    rule = re.search(r"html\.tv \.filmbody > :not\(([^)]*)\)[^{]*\{ display: none; \}", tv)
+    assert rule and ".tv-makers" in [s.strip() for s in rule.group(1).split(",")]
+    assert ("html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast, .tv-extras, #fp-scores, #fp-crew, "
+            "#fp-providers, #fp-collection, .tv-makers), html.tv .fp-shelf-wait { display: none; }") in tv

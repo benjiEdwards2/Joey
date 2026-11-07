@@ -274,7 +274,7 @@ html.tv .tv-rate { margin-top: 1.375rem; }
 html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: .5rem; }
 html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
 html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
-html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast, .tv-extras, #fp-scores, #fp-crew, #fp-providers, #fp-collection), html.tv .fp-shelf-wait { display: none; }
+html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast, .tv-extras, #fp-scores, #fp-crew, #fp-providers, #fp-collection, .tv-makers), html.tv .fp-shelf-wait { display: none; }
 
 /* The Set up Jellyfin card (Q39; WP-M screen 9): a full-screen card over the Overview, the address at 34 px mono with its
    :port in gold and underlined, three numbered steps, Done focused. tv.js keeps the D-pad on it while it is up. */

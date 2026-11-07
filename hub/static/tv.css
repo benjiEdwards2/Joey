@@ -808,6 +808,16 @@ html.tv .seehide { padding: 0 .75rem; }
 html.tv .seemore-wrap { padding: 1rem 0 1.5rem; }
 html.tv .seemore { height: 2.75rem; padding: 0 1.5rem; font-size: 1.125rem; border-radius: var(--tv-r-pill); }
 
+/* JY-303 (phase 2): Browse by genre under the last shelf - per kind a label and one chip row that scrolls sideways (tv.js
+   centres the focused chip), Down / Up between the rows; the grid's Related topics row the same way. 18 px words. */
+html.tv .browse-label { margin: .75rem 0 0; font-size: 1.125rem; line-height: 1.375rem; font-weight: 600; color: var(--tv-t2); }
+html.tv .browse-row, html.tv .topic-row { display: flex; flex-wrap: nowrap; gap: .5rem; margin: .25rem 0 0; padding: .4375rem .5rem; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+html.tv .browse-row::-webkit-scrollbar, html.tv .topic-row::-webkit-scrollbar { display: none; }
+html.tv .browse-row .chip, html.tv .topic-row .chip { flex: none; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .browse-row .chip.tv-focus, html.tv .browse-row .chip:focus-visible, html.tv .topic-row .chip.tv-focus, html.tv .topic-row .chip:focus-visible { color: var(--tv-t1); }
+html.tv .topic-row .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
+html.tv .seetopics { margin: .75rem 0 0; }
+
 /* JY-266: the Collections grid - its "3 of 4 on Joey" words at the 18 px floor, and the filter / sort chips wrap to a
    second row instead of clipping the last sort at 1920 */
 html.tv .colon-words { font-size: 1.125rem; line-height: 1.25rem; }

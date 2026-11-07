@@ -1,0 +1,17 @@
+{# JY-303 phase 2: Browse by genre, under Discover's shelves (B. and friends, web and TV). One row per kind (Films, TV),
+   one text pill per TMDB genre (Seerr's genre lists, the See all Genre picker's cached reads); a pill opens the See all
+   grid with the kind + genre, sorted Popular. Web: the pills wrap; TV: each row scrolls sideways (tv.js centres the
+   focused pill), Down from the last shelf lands here. Absent when no genre list could be read or Seerr is down. #}
+{% macro browse_section(browse) %}
+{% if browse %}
+<section class="sec browse" aria-label="Browse by genre">
+  <h2 class="seclabel">Browse</h2>
+  {% for b in browse %}
+  <div class="browse-kind" data-browse="{{ b.kind }}">
+    <h3 class="browse-label">{{ b.label }}</h3>
+    <nav class="chips browse-row" aria-label="{{ b.label }} genres">{% for g in b.genres %}<a class="chip" href="{{ g.href }}">{{ g.name }}</a>{% endfor %}</nav>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{%- endmacro %}

@@ -720,6 +720,13 @@ h1.seclabel.seetitle { display: block; font-size: 12px; margin: 0; }
 .seehide { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-3); cursor: pointer; }
 .seemore-wrap { display: flex; justify-content: center; padding: 24px 0 8px; }
 .seemore-wrap:empty { display: none; }
+/* JY-303 (phase 2): Discover's Browse by genre - a Films row and a TV row of genre pills that wrap; the grid's Related
+   topics row (the lit chip = the active topic, then its clear) */
+.browse-kind + .browse-kind { margin-top: 12px; }
+.browse-label { margin: 8px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+.seetopics { margin: 0 0 16px; }
+.seetopics .seclabel { display: block; margin: 0 0 8px; }
+.topic-clear { padding: 0 10px; font-size: 14px; }
 
 /* Posters: carousels (deliberate sideways shelves, snap-x) and cards with an action beside the title.
    .card-pic holds the picture plus a score badge (top right) or a teal coming-soon tag (top left). */

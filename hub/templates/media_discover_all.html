@@ -35,10 +35,14 @@
   </select>
   {% elif f.service %}<input type="hidden" name="service" value="{{ f.service }}">
   {% endif %}
+  {% if f.keyword %}<input type="hidden" name="keyword" value="{{ f.keyword }}">{% endif %}
   <label class="seehide"><input type="checkbox" name="hide" value="1"{{ " checked" if f.hide }}> Hide what is on Joey</label>
   <noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>
 </form>
 {% if note %}<p class="metaline">{{ note }}</p>{% endif %}
+{# JY-303 phase 2: Related topics (TMDB keywords), loaded after the grid draws; the active topic is drawn at once #}
+{% if topic %}{% include "_discover_topics.html" %}
+{% elif topics_href %}<div id="see-topics" class="seetopics-wait" hidden hx-get="{{ topics_href }}" hx-trigger="load" hx-select="unset" hx-swap="outerHTML" hx-push-url="false"></div>{% endif %}
 <div id="see-grid" class="poster-grid seegrid{{ ' reqgrid' if on_media }}">{% include "_discover_all_cells.html" %}</div>
 {% include "_discover_all_more.html" %}
 {% if on_media %}{% include "_guest_req_kit.html" %}{% endif %}

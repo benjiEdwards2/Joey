@@ -24,4 +24,5 @@
   </section>
   {% endfor %}
   {% endif %}
+  {% if not q %}{% from "_discover_browse.html" import browse_section %}{{ browse_section(browse) }}{% endif %}
 </div>

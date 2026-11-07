@@ -4,6 +4,7 @@
 {% from "_discover_item.html" import item %}
 {% from "_icons.html" import icon %}
 {% from "_services.html" import services_row %}
+{% from "_discover_browse.html" import browse_section %}
 {# Discover & Search (2026-10-05; restyle Phase 3): the guide's search box, then poster carousels from Jellyseerr.
    Status is a WORD. #}
 {% if not connected %}
@@ -33,6 +34,7 @@
   {% endif %}
 </section>
 {% endfor %}
+{{ browse_section(browse) }}
 {% endif %}
 {% endif %}
 {% endblock %}

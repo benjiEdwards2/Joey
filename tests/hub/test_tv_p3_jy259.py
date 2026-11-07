@@ -237,12 +237,13 @@ def test_the_tv_sub_tabs_fold_tonight_to_rate_and_awards_under_more(lib):
     top, more = nav.split('<details class="tv-tabmore"', 1)
     assert re.findall(r'<a href="([^"]+)"', top) == ["/media/movies", "/media/movies/watchlist"]
     assert "<summary>More</summary>" in more and " open" not in more.split(">", 1)[0]
-    assert re.findall(r'<a href="([^"]+)"', more) == ["/media/movies/tonight", "/media/movies/to-rate", "/media/movies/awards"]
+    assert re.findall(r'<a href="([^"]+)"', more) == ["/media/movies/tonight", "/media/movies/to-rate", "/media/movies/awards",
+                                                     "/media/collections"]   # JY-266
     tonight = subtabs(lib.get("/media/movies/tonight", headers=TV).text)
     folded = tonight.split('<details class="tv-tabmore"', 1)[1]
     assert folded.startswith(" open>") and re.search(r'href="/media/movies/tonight" aria-current="page"', folded)
     web = subtabs(lib.get("/media/movies").text)
-    assert "tv-tabmore" not in web and len(re.findall(r"<a href=", web)) == 5        # the web keeps five tabs
+    assert "tv-tabmore" not in web and len(re.findall(r"<a href=", web)) == 6        # the web keeps every tab (six with JY-266 Collections)
 
 
 # ---- 6: Discover ----

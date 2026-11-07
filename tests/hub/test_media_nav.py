@@ -244,7 +244,7 @@ def test_tab_bar_is_a_direct_child_of_body(env, route):
 
 def test_movies_and_tv_tabs_have_no_by_year():
     tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
-    assert tabs["movies"] == ["My films", "To rate", "Awards"]   # nav-tidy (2026-10-13): Watchlist + Tonight left the nav
+    assert tabs["movies"] == ["My films", "To rate", "Awards", "Collections"]   # JY-266   # nav-tidy (2026-10-13): Watchlist + Tonight left the nav
     assert tabs["tv"] == ["My shows", "To rate", "Awards"]
     assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith("/media/years")]
 
@@ -259,9 +259,10 @@ def test_five_sections_and_no_diary():
     assert (home["icon"], home["href"]) == ("house", None)   # Overview: label only, id / href / icon unchanged
 
 
-def test_movies_and_tv_have_exactly_three_tabs():
+def test_movies_has_four_tabs_and_tv_three():
     tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
-    assert tabs["movies"] == [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]
+    assert tabs["movies"] == [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards"),
+                              ("Collections", "/media/collections")]   # JY-266
     assert tabs["tv"] == [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
 
 
@@ -296,7 +297,7 @@ def test_to_rate_count_sits_on_activity_and_its_history_tab():
     movies = media_nav.nav_context(SimpleNamespace(url=SimpleNamespace(path="/media/movies", query="")), reg,
                                    {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
     assert [(t["label"], t["count"], t["what"]) for t in movies["tabs"]] == [
-        ("My films", 0, "to get"), ("To rate", 2, "to rate"), ("Awards", 0, "to get")]
+        ("My films", 0, "to get"), ("To rate", 2, "to rate"), ("Awards", 0, "to get"), ("Collections", 0, "to get")]
 
 
 def test_activity_section_shows_the_to_rate_count_on_the_page(env):

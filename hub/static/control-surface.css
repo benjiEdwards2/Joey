@@ -1685,6 +1685,34 @@ details.reqdecide.confirm-wrap[open] + details.confirm-wrap { margin-left: auto;
   .live-rail { order: -1; }
 }
 
+/* JY-266 Collections: the franchise page's missing films dimmed, Request under the card */
+.colparts .card-cell.is-missing .card-pic { opacity: .45; filter: grayscale(.6); }
+.colparts .card-cell.is-missing .row-title { color: var(--text-4); }
+.colparts .card-cell .row-title, .colparts .card-cell .row-meta, .colparts .card-cell > .colreq { grid-column: 1 / -1; }
+.colparts .card-cell { align-content: start; }   /* a taller neighbour (Request) never spreads the title from its meta */
+.colparts .card-cell .row-meta { font-size: 11px; }
+.colreq { margin-top: 6px; }
+/* JY-266 P3: the Collections grid - poster stack, the on-Joey bar, the A-Z jump bar */
+.colbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.colbar > .chips { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+.colkick { margin: 0; }
+.azbar { display: flex; gap: 4px; overflow-x: auto; margin: 12px 0 4px; }
+.azbar a { flex-shrink: 0; min-width: 28px; padding: 4px 6px; border-radius: 6px; text-align: center; font-size: 12px;
+  font-weight: 600; color: var(--text-3); text-decoration: none; }
+.azbar a:hover, .azbar a:focus-visible { background: var(--line); color: var(--text-1); }
+.colgrid { padding-top: 12px; }
+.colcard { scroll-margin-top: 96px; }
+.colstack { isolation: isolate; }
+.colstack > img.colstack-back { position: absolute; inset: 0; z-index: -1; border-radius: 8px; }
+.colstack > img.colstack-back-1 { transform: translate(6px, -6px) scale(.96); opacity: .55; }
+.colstack > img.colstack-back-2 { transform: translate(12px, -12px) scale(.92); opacity: .3; }
+.colon { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.colon-bar { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.colon-bar > span { display: block; height: 100%; background: var(--brand); }
+.colcard.is-complete .colon-bar > span { background: var(--good); }
+.colon-words { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-4); }
+.colon-words svg.ic { width: 12px; height: 12px; }
+
 /* JY-269 P1 (B. 2026-10-29, pick A): the web and phone title pages (film, show, season, episode) take the TV hero
    (JY-259 §8) - backdrop under a calm scrim (darker on the left, fading to the page at its foot), the poster beside the
    title, facts, a short synopsis ("more" opens it) and ONE button row ending in a "…" menu (Request beside Play,

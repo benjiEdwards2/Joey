@@ -1,0 +1,51 @@
+{% extends "media_base.html" %}
+{% block title %}Collections · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead("Collections") %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% from "_icons.html" import icon %}
+{# JY-266 P3 (rec A): one card per film franchise with a film on Joey - a poster stack (the collection's poster in front,
+   up to two of its films behind), the name, "4 films · 2001-2011", a "3 of 4 on Joey" bar (a tick when complete). The
+   A-Z jump bar (A-Z sort, not on the TV), filters, the Single films chip (Q1 A: hidden by default) and the sorts are
+   links. The owner's "Check now" kicks the monthly pass. Friends see it read-only. #}
+{% set tvm = tv_mode(request) %}
+{% if failed %}
+<p class="empty">Collections unavailable</p>
+{% else %}
+{% if kicked %}<p class="metaline st-good" role="status">Checking now. New collections show up over the next few hours.</p>{% endif %}
+<p class="metaline">{{ head_line }}{% if owner and last_words %}<span class="sep"> · </span>Last checked {{ last_words }}{% endif %}</p>
+<div class="toolbar colbar">
+  <nav class="chips{{ ' tv-libchips' if tvm }}" aria-label="Filter and sort">
+    {% for k, label in filters.items() %}<a class="chip{{ ' on' if k == f }}" href="{{ filter_links[k] }}"{% if k == f %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+    {% if singles %}<a class="chip{{ ' on' if single }}" href="{{ single_link }}"{% if single %} aria-current="true"{% endif %}>Single films · {{ singles }}</a>{% endif %}
+    {% for k, label in sorts.items() %}<a class="chip{{ ' on' if k == s }}" href="{{ sort_links[k] }}"{% if k == s %} aria-current="true"{% endif %}>{{ "Sort: " if tvm }}{{ label }}</a>{% endfor %}
+  </nav>
+  {% if owner and enabled %}
+  <form method="post" action="{{ refresh }}" class="colkick"><button class="btn btn-secondary btn-sm" type="submit">Check now</button></form>
+  {% endif %}
+</div>
+{% if jump %}
+<nav class="azbar" aria-label="Jump to letter">{% for k, a in jump.items() %}<a href="#{{ a }}">{{ k }}</a>{% endfor %}</nav>
+{% endif %}
+{% if cards %}
+<div class="poster-grid libgrid colgrid">
+  {% for c in cards %}
+  <a class="card-poster colcard{{ ' is-complete' if c.complete }}" href="{{ c.href }}"{% if c.anchor %} id="{{ c.anchor }}"{% endif %}>
+    <span class="card-pic colstack">{% for p in c.stack|reject("equalto", c.poster) %}<img class="colstack-back colstack-back-{{ loop.index }}" src="/img/{{ p }}?h=240" alt="" loading="lazy" decoding="async" aria-hidden="true">{% endfor %}{{ poster(c.poster, c.name, 240, "", tvm) }}</span>
+    <span class="row-title">{{ c.name }}</span>
+    <span class="row-meta">{{ c.count_line }}</span>
+    <span class="colon"><span class="colon-bar" role="img" aria-label="{{ c.on_line }}"><span style="width: {{ c.pct }}%"></span></span><span class="colon-words{{ ' st-good' if c.complete }}">{% if c.complete %}{{ icon("check") }}{% endif %}{{ c.on_line }}</span></span>
+  </a>
+  {% endfor %}
+</div>
+{% elif total %}
+<p class="empty">No collection matches this filter.</p>
+{% else %}
+<p class="empty">No collections yet.{% if owner %} The monthly check fills this; Check now starts it.{% endif %}</p>
+{% endif %}
+{% endif %}
+{% endblock %}

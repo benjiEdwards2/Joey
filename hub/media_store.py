@@ -91,8 +91,13 @@ def _library_index(db) -> None:   # JY-264 (2026-10-28): the library index + the
     library_index.migrate(db)
 
 
+def _collections(db) -> None:   # JY-266 (2026-11-06): the Collections tables (hub/media_collections.py)
+    from hub import media_collections
+    media_collections.migrate(db)
+
+
 STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating, _removals,
-         _library_index)   # STEPS[n]: user_version n -> n + 1. Deploy order: never reorder a step that has shipped.
+         _library_index, _collections)   # STEPS[n]: user_version n -> n + 1. Deploy order: never reorder a step that has shipped.
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

@@ -15,8 +15,10 @@ TAB_ALIASES = {"/media/server/history": "/media/diary"}
 
 SECTIONS: list[dict] = [
     {"id": "home", "label": "Overview", "short": "Overview", "icon": "house", "href": None, "prefixes": [], "tabs": []},
-    {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
-     "tabs": [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]},
+    {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies",
+     "prefixes": ["/media/movies", "/media/collections"],   # JY-266: Collections is a Movies tab
+     "tabs": [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards"),
+              ("Collections", "/media/collections")]},
     {"id": "tv", "label": "TV shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
      "tabs": [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]},
     # decision 4 (2026-10-09): the Media section reads "Activity" (the hub AREA stays "Server"); id + URLs unchanged.
@@ -50,7 +52,7 @@ SECTIONS: list[dict] = [
 GUEST_TABS = {
     "movies": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
                ("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate"),
-               ("Awards", "/media/movies/awards")],
+               ("Awards", "/media/movies/awards"), ("Collections", "/media/collections")],   # JY-266
     "tv": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"), ("Tonight", "/media/tv/tonight"),
            ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")],
 }

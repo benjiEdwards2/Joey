@@ -712,6 +712,14 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
   color: var(--text-5); pointer-events: none; }
 .search > .input { padding-left: 36px; }
 .toolbar .chip { height: 36px; }
+/* JY-303 (phase 1): the See all grid - its title (a page heading drawn as the section label), the filter bar (wraps on a
+   phone), the Hide tick and Load more centred under the grid */
+h1.seclabel.seetitle { display: block; font-size: 12px; margin: 0; }
+.seefilters { margin: 12px 0 16px; }
+.seefilters .select { min-width: 0; max-width: 100%; padding: 0 8px; }
+.seehide { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-3); cursor: pointer; }
+.seemore-wrap { display: flex; justify-content: center; padding: 24px 0 8px; }
+.seemore-wrap:empty { display: none; }
 
 /* Posters: carousels (deliberate sideways shelves, snap-x) and cards with an action beside the title.
    .card-pic holds the picture plus a score badge (top right) or a teal coming-soon tag (top left). */

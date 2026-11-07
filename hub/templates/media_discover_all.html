@@ -1,0 +1,60 @@
+{% extends "media_base.html" %}
+{% block title %}{{ title }} · Joey{% endblock %}
+{% block content %}
+{# JY-303 phase 1 (B. 2026-11-06 picker: PUSH, rec B phased): a Discover shelf's See all. One poster grid over the
+   filter bar (Films / TV, Genre once a kind is picked, Year, Sort, Service, Hide what is on Joey; a change reloads the
+   page, Apply without JS) and Load more (the next 20 from Seerr, added under the grid; the URL follows, so Back and a
+   refresh show the same pages). Friends get their request grid (state chips, the request panel); B. the Discover cards
+   with the watchlist "+". #}
+<div class="sechead"><h1 class="seclabel seetitle">{{ title }}</h1><a class="seeall" href="/media/discover">Discover</a></div>
+{% if not connected %}
+<p class="empty">Not connected</p>
+{% else %}
+<form class="toolbar seefilters" method="get" action="/media/discover/all" hx-get="/media/discover/all" hx-target="body"
+      hx-swap="innerHTML show:none" hx-push-url="true" hx-trigger="submit, change">
+  <select class="select" name="kind" aria-label="Films or TV">
+    {% for v, label in kinds %}<option value="{{ v }}"{% if v == f.kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% if f.kind and genres %}
+  <select class="select" name="genre" aria-label="Genre">
+    <option value="">Any genre</option>
+    {% for g in genres %}<option value="{{ g.id }}"{% if g.id == f.genre %} selected{% endif %}>{{ g.name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <select class="select" name="year" aria-label="Year">
+    <option value="">Any year</option>
+    {% for y in years %}<option value="{{ y }}"{% if y == f.year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <select class="select" name="sort" aria-label="Sort by">
+    {% for v, label in sorts %}<option value="{{ v }}"{% if v == f.sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  {% if services %}
+  <select class="select" name="service" aria-label="Streaming service">
+    <option value="">Any service</option>
+    {% for s in services %}<option value="{{ s.id }}"{% if s.id == f.service %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+  </select>
+  {% elif f.service %}<input type="hidden" name="service" value="{{ f.service }}">
+  {% endif %}
+  <label class="seehide"><input type="checkbox" name="hide" value="1"{{ " checked" if f.hide }}> Hide what is on Joey</label>
+  <noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>
+</form>
+{% if note %}<p class="metaline">{{ note }}</p>{% endif %}
+<div id="see-grid" class="poster-grid seegrid{{ ' reqgrid' if on_media }}">{% include "_discover_all_cells.html" %}</div>
+{% include "_discover_all_more.html" %}
+{% if on_media %}{% include "_guest_req_kit.html" %}{% endif %}
+<script>
+(function () {
+  if (window.joeySeeAll) return;   /* boosted navigations re-run this script: bind once */
+  window.joeySeeAll = true;
+  /* after Load more the first new poster takes the focus (the TV: tv.js does it, with its own focus ring) */
+  document.addEventListener('htmx:afterSettle', function () {
+    if (document.documentElement.classList.contains('tv')) return;
+    var f = document.querySelector('#see-grid [data-more-first]');
+    if (!f) return;
+    f.removeAttribute('data-more-first');
+    f.focus({ preventScroll: true });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

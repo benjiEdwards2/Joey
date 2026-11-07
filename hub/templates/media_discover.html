@@ -22,7 +22,8 @@
 {{ services_row(services) }}
 {% for s in shelves %}
 <section class="sec">
-  <h2 class="seclabel">{{ s.title }}</h2>
+  {# JY-303: every shelf's See all opens the full grid (filters, Load more) #}
+  <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2><a class="seeall" href="/media/discover/all?shelf={{ s.id }}">See all</a></div>
   {% if s.rows is none %}
   <p class="empty">Discover unavailable</p>
   {% elif s.rows %}

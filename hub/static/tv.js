@@ -846,6 +846,12 @@
       var yb = yearBtn();
       if (yb && visible(yb)) { setFocus(yb); return; }
     }
+    /* JY-303: Load more on the See all grid swapped its own button out - the first poster it added takes the focus */
+    var more = document.querySelector('main [data-more-first]');
+    if (more) {
+      more.removeAttribute('data-more-first');
+      if (visible(more)) { setFocus(more); remember(more); return; }
+    }
     var a = active(), f = first();
     if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);
   }

@@ -21,7 +21,8 @@
 {% else %}
 {% for s in shelves %}
 <section class="sec">
-  <h2 class="seclabel">{{ s.title }}</h2>
+  {# JY-303: See all opens the full grid with this service picked #}
+  <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2>{% if s.see %}<a class="seeall" href="{{ s.see }}">See all</a>{% endif %}</div>
   {% if s.rows is none %}
   <p class="empty">Unavailable</p>
   {% elif s.rows and s.tiles is defined %}

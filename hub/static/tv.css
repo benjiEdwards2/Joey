@@ -796,3 +796,14 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
+
+/* JY-303 (phase 1): "See all" is the one .sechead link the TV shows (the others stay hidden), a focusable pill; the See all
+   grid's filter bar (native pickers on OK) and Load more, a focusable button under the grid */
+html.tv .sechead a.seeall { display: inline-flex; align-items: center; height: 2rem; padding: 0 .875rem; border-radius: var(--tv-r-pill); font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .sechead a.seeall.tv-focus, html.tv .sechead a.seeall:focus-visible { color: var(--tv-t1); }
+html.tv h1.seclabel.seetitle { font-size: 1.125rem; line-height: 1.125rem; margin: .75rem 0 0; }
+html.tv .seefilters { margin: .75rem 0 0; gap: .75rem; }
+html.tv .seefilters .select, html.tv .seehide { height: 2.5rem; font-size: 1.125rem; border-radius: var(--tv-r); color: var(--tv-t2); }
+html.tv .seehide { padding: 0 .75rem; }
+html.tv .seemore-wrap { padding: 1rem 0 1.5rem; }
+html.tv .seemore { height: 2.75rem; padding: 0 1.5rem; font-size: 1.125rem; border-radius: var(--tv-r-pill); }

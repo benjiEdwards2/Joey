@@ -1,0 +1,86 @@
+# JY-051 "Joey Study" test APK (throwaway, debug only). Separate from tv.yml on purpose: no tv/ files, no tv/VERSION,
+# no signing secrets, no release job. Builds on pushes to the JY-051 branch that touch the study app, the study page
+# (bundled into the APK for T1) or this file. Installed on B.'s TV by scripts/jy051_sitting.py (adb), removed after.
+# Third-party actions are pinned by full commit SHA (the same pins as tv.yml).
+name: jy051-study
+
+on:
+  push:
+    branches:
+      - "feat/JY-051-*"
+    paths:
+      - "docs/joeyv2/research/jy051/android/**"
+      - "hub/static/jy051/**"
+      - ".github/workflows/jy051-study.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jy051-study-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: docs/joeyv2/research/jy051/android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint this workflow (actionlint)
+        working-directory: .
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -shellcheck= -pyflakes= .github/workflows/jy051-study.yml
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          log-accepted-android-sdk-licenses: false
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: "9.7.1"
+
+      - name: Bundle the study page (T1 loads it from the APK's assets)
+        run: |
+          mkdir -p app/src/main/assets
+          cp "$GITHUB_WORKSPACE/hub/static/jy051/study.html" app/src/main/assets/study.html
+          ls -l app/src/main/assets
+
+      - name: JVM tests + debug APK
+        run: gradle testDebugUnitTest assembleDebug --stacktrace
+
+      - name: APK facts (package, size, FFmpeg libraries per ABI) + secret scan
+        run: |
+          apk="$(ls app/build/outputs/apk/debug/*.apk | head -1)"
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$bt/aapt2" dump badging "$apk" | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|leanback-launchable-activity|native-code)"
+          echo "APK bytes: $(stat -c %s "$apk")"
+          echo "FFmpeg extension libraries (uncompressed bytes, path):"
+          unzip -l "$apk" | awk '/lib\/.*ffmpeg/ {print $1, $4}'
+          unzip -l "$apk" | grep -q "assets/study.html" || { echo "::error::study.html missing from the APK"; exit 1; }
+          python3 "$GITHUB_WORKSPACE/deploy/tv_version.py" scan "$apk"
+          mkdir -p "$GITHUB_WORKSPACE/dist" && cp "$apk" "$GITHUB_WORKSPACE/dist/joey-study.apk"
+          sha256sum "$GITHUB_WORKSPACE/dist/joey-study.apk"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: joey-study-apk
+          path: dist/joey-study.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: joey-study-reports
+          path: docs/joeyv2/research/jy051/android/app/build/reports/
+          retention-days: 7
+          if-no-files-found: ignore

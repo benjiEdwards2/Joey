@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plain 320x180 banner: the runner launches the app by adb, the tile only has to exist. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#2457C5" />
+    <size android:width="320dp" android:height="180dp" />
+</shape>

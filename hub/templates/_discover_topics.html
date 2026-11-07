@@ -1,0 +1,12 @@
+{# JY-303 phase 2: the See all grid's Related topics - up to 8 TMDB keywords from the first page's titles (most titles
+   first); a chip opens the grid filtered by that keyword. With a keyword active its chip comes first, lit, with a clear
+   (x). The page draws a placeholder (or the active chip and a placeholder) and this part replaces it after the grid
+   draws (htmx, part=topics); the part answers "" when there is nothing to show, so the row goes. #}
+<section id="see-topics" class="sec seetopics">
+  <h2 class="seclabel">Related topics</h2>
+  <nav class="chips topic-row" aria-label="Related topics">
+    {%- if topic %}<span class="chip on" aria-current="true">{{ topic.name }}</span><a class="chip topic-clear" href="{{ topic.clear_href }}" aria-label="Clear topic {{ topic.name }}">×</a>{% endif -%}
+    {%- for t in topics or [] %}<a class="chip" href="{{ t.href }}">{{ t.name }}</a>{% endfor -%}
+  </nav>
+  {% if topics_href %}<div class="seetopics-wait" hidden hx-get="{{ topics_href }}" hx-trigger="load" hx-target="#see-topics" hx-select="unset" hx-swap="outerHTML" hx-push-url="false"></div>{% endif %}
+</section>

@@ -308,6 +308,7 @@
   function centreInShelf(el) {
     /* JY-259 (P3, verifier fix): the season chip row scrolls sideways like a shelf */
     var shelf = el.closest('.carousel, .tv-seasonchips, .tv-libchips');   /* JY-270: and the library chips */
+    if (!shelf) shelf = el.closest('.browse-row, .topic-row');   /* JY-303 p2: the Browse and Related topics rows */
     if (!shelf) return;
     var item = el;
     while (item.parentElement && item.parentElement !== shelf) item = item.parentElement;

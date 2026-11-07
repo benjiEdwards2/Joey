@@ -1,6 +1,6 @@
 # JY-285 — Director and writer: more of their work (A on web, C shelf on the TV app)
 
-Status: ready (B. 2026-11-06 on the options page: "Accept — A on desktop, tv etc if you click into it. C on TV app where we have the space underneath." q-1 "Default A with C shelf on TV", q-3/4/5 defaults)
+Status: on sweep (PR #337 922fc5d, reviewer PASS round 2; Sweep 39 2026-11-07)
 
 ## Goal
 From a film, show, season or episode page, B. reaches more of a director's or writer's work in a few touches. Web (desktop, phone, and the TV *web* page): option A, the maker chips stay links to the person page, polished. TV *app* (`html.tv`): option C, a "More from <name>" poster shelf under the cast for each maker.

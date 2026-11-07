@@ -1,6 +1,6 @@
 # JY-303 phase 2 — Discover: browse by genre and related-topic chips
 
-Status: ready (phase 2 of JY-303, scoped from the phase 1 spec's "later" list; B. picker 2026-11-06 "PUSH" on JY-303 rec B phased; B. 2026-11-07 "continue as much as possible")
+Status: on sweep (PR #338 4f212dd, reviewer PASS; Sweep 39 2026-11-07)
 Size: M
 Area: `hub/media_discover.py`, Discover templates (`media_discover.html`, `media_discover_all.html`, `_discover_*.html`, guest Discover templates), `hub/static/control-surface.css`, `hub/static/tv.css`, `hub/static/tv.js` (focus only), `tests/hub`. NOT the title-page templates (`media_film.html`, `_film_*.html`): JY-285 owns those right now; the film-page genre links and Similar/Recommended "See all" are phase 2b, later.
 

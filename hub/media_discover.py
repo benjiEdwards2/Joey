@@ -15,7 +15,7 @@ import logging
 import os
 import time
 from datetime import date, timedelta
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode
 
@@ -337,17 +337,19 @@ def discover_page(request: Request, q: str = "", t: str = ""):
         return _page(request, "media_discover_guest.html", lambda: _guest_grid(request, q, t, _tv(request)))
 
     def build():
-        ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set(), "services": []}
+        ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set(), "services": [], "browse": []}
         if _creds():
             if q:
                 ctx["rows"], ctx["note"] = _search_outcome(q)
             else:
-                with ThreadPoolExecutor(max_workers=len(SHELVES) + 1) as pool:
+                with ThreadPoolExecutor(max_workers=len(SHELVES) + 2) as pool:
                     svc = pool.submit(services)
+                    brw = pool.submit(browse)
                     got = list(pool.map(lambda s: _shelf(s[2], s[3]), SHELVES))
                 ctx["shelves"] = [{"id": s[0], "title": _aged(s[1], at), "rows": rows}
                                   for s, (rows, at) in zip(SHELVES, got)]
                 ctx["services"] = svc.result()
+                ctx["browse"] = brw.result() if any(rows is not None for rows, _ in got) else []   # JY-303 p2
                 ages = [at for _, at in got if at is not None]   # E1: for a page-level line, should the page want one
                 ctx["stale_note"] = f"Shelves from {ago_text((time.time() - min(ages)) / 60.0)}" if ages else None
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in ctx["rows"]
@@ -423,7 +425,8 @@ def _guest_grid(request: Request, q: str, t: str = "", tv: bool = False) -> dict
     (hub.media_guest_requests); a person row has no chip."""
     from hub import media_guest_requests as mgr
     t = t if t in dict(GUEST_TYPES) else ""
-    ctx = {"q": q, "t": t, "types": GUEST_TYPES, "rows": [], "note": None, "upcoming": [], "services": None}
+    ctx = {"q": q, "t": t, "types": GUEST_TYPES, "rows": [], "note": None, "upcoming": [], "services": None,
+           "browse": []}
     if not _creds():
         return ctx
     if q:
@@ -434,8 +437,9 @@ def _guest_grid(request: Request, q: str, t: str = "", tv: bool = False) -> dict
         return ctx
     else:
         extra = GUEST_UPCOMING if tv else ()
-        with ThreadPoolExecutor(max_workers=len(GUEST_SHELVES) + len(extra) + 1) as pool:
+        with ThreadPoolExecutor(max_workers=len(GUEST_SHELVES) + len(extra) + 2) as pool:
             svc = pool.submit(services) if tv else None
+            brw = pool.submit(browse)
             got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), GUEST_SHELVES + extra))
         got, soon = got[:len(GUEST_SHELVES)], got[len(GUEST_SHELVES):]
         if svc is not None:
@@ -450,6 +454,7 @@ def _guest_grid(request: Request, q: str, t: str = "", tv: bool = False) -> dict
                 rows.append(r)
         rows = rows[:GUEST_MAX]
         ctx["note"] = None if rows else "Discover unavailable" if all(g is None for g in got) else "Nothing to show."
+        ctx["browse"] = brw.result() if any(g is not None for g in got) else []   # JY-303 p2: hidden when Seerr is down
     mine = mgr.viewer_mine()
     ctx["rows"] = mgr.with_states(rows, mine)
     ctx["upcoming"] = [{"id": s[0], "title": s[1], "items": _tv_tiles(mgr.with_states(r[:ROW_MAX], mine))}
@@ -627,6 +632,12 @@ PRESETS = {"trending": ("", "trending"), "movies": ("movie", "popular"), "tv": (
 PRESET_PATHS = {PRESETS[s[0]]: (s[2], s[3]) for s in SHELVES}   # (kind, sort) -> the shelf's (path, kind hint)
 SORT_WORDS = {"popular": "Popular", "rated": "Top rated", "newest": "Newest", "soon": "Upcoming"}
 KIND_WORDS = {"": "films & TV", "movie": "films", "tv": "TV"}
+# JY-303 phase 2: Browse by genre (Discover) and Related topics (the grid's TMDB keyword chips)
+BROWSE_KINDS = (("movie", "Films"), ("tv", "TV"))
+KEYWORD_TTL = 24 * 3600   # a title's keywords and a keyword's name barely change
+TOPIC_MAX = 8
+TOPIC_DEADLINE_S = 12     # one wall-clock budget for the keyword reads (the person page's "you may like" pattern)
+TOPIC_WORKERS = 4
 
 
 def _posint(v) -> int | None:
@@ -649,7 +660,7 @@ def genres(kind: str) -> list[dict] | None:
 
 
 def see_filters(shelf: str = "", kind=None, sort=None, genre=None, year=None, service=None, hide="",
-                today: date | None = None) -> dict:
+                today: date | None = None, keyword=None) -> dict:
     """The query -> clean filters. A parameter that is absent takes the shelf's preset; a bad value falls back."""
     today = today or date.today()
     pk, ps = PRESETS.get(shelf, PRESETS["trending"])
@@ -660,8 +671,8 @@ def see_filters(shelf: str = "", kind=None, sort=None, genre=None, year=None, se
     y = _posint(year)
     f = {"kind": kind, "sort": sort, "genre": _posint(genre) if kind else None,
          "year": y if y is not None and 1900 <= y <= today.year + 3 else None,
-         "service": _posint(service), "hide": hide == "1"}
-    if f["sort"] == "trending" and (f["kind"] or f["genre"] or f["year"] or f["service"]):
+         "service": _posint(service), "hide": hide == "1", "keyword": _posint(keyword)}
+    if f["sort"] == "trending" and (f["kind"] or f["genre"] or f["year"] or f["service"] or f["keyword"]):
         f["sort"] = "popular"   # Seerr's trending takes no filter
     return f
 
@@ -669,7 +680,7 @@ def see_filters(shelf: str = "", kind=None, sort=None, genre=None, year=None, se
 def see_href(f: dict, page: int = 1, more: bool = False) -> str:
     """The grid URL for filters `f` (every filter explicit, so no shelf preset applies again)."""
     q: dict = {"kind": f.get("kind", ""), "sort": f.get("sort", "popular")}
-    for k in ("genre", "year", "service"):
+    for k in ("genre", "year", "service", "keyword"):
         if f.get(k):
             q[k] = f[k]
     if f.get("hide"):
@@ -703,6 +714,8 @@ def _discover_path(kind: str, f: dict, page: int, today: date) -> str:
         q.append(f"{dkey}Lte={lte}")
     if f["genre"]:
         q.append(f"genre={f['genre']}")
+    if f.get("keyword"):
+        q.append(f"keywords={f['keyword']}")
     if f["service"]:
         q.append(f"watchRegion={WATCH_REGION}&watchProviders={f['service']}")
     return f"/api/v1/discover/{'movies' if movie else 'tv'}?" + "&".join(q)
@@ -713,7 +726,7 @@ def see_paths(f: dict, page: int, today: date | None = None) -> list[tuple[str, 
     discover read per kind."""
     today = today or date.today()
     preset = PRESET_PATHS.get((f["kind"], f["sort"]))
-    if preset and not (f["genre"] or f["year"] or f["service"]):
+    if preset and not (f["genre"] or f["year"] or f["service"] or f.get("keyword")):
         return [(preset[0] if page == 1 else f"{preset[0]}?page={page}", preset[1])]
     return [(_discover_path(k, f, page, today), k) for k in ([f["kind"]] if f["kind"] else ["movie", "tv"])]
 
@@ -750,26 +763,105 @@ def see_page(f: dict, page: int, today: date | None = None) -> tuple[list[dict] 
     return rows, page < MAX_PAGE and any(page < n for r, n in got if r is not None)
 
 
-def see_title(f: dict, genre_name: str | None = None, service_name: str | None = None) -> str:
-    head = "Trending" if f["sort"] == "trending" else f"{SORT_WORDS[f['sort']]} {KIND_WORDS[f['kind']]}"
-    return " · ".join(x for x in (head, genre_name, str(f["year"]) if f["year"] else None, service_name) if x)
+def see_title(f: dict, genre_name: str | None = None, service_name: str | None = None,
+              topic_name: str | None = None) -> str:
+    """JY-303 p2: a genre request reads "<Genre> films" / "<Genre> TV" (the sort word follows unless it is Popular)."""
+    if genre_name:
+        head = f"{genre_name} {KIND_WORDS[f['kind']]}"
+        sort = None if f["sort"] == "popular" else dict(SORTS)[f["sort"]]
+    else:
+        head = "Trending" if f["sort"] == "trending" else f"{SORT_WORDS[f['sort']]} {KIND_WORDS[f['kind']]}"
+        sort = None
+    return " · ".join(x for x in (head, sort, topic_name, str(f["year"]) if f["year"] else None, service_name) if x)
+
+
+def browse() -> list[dict]:
+    """JY-303 p2: Discover's Browse rows - [{kind, label, genres: [{name, href}]}], one row per kind whose genre list
+    could be read (the Genre picker's cached lists); a tile opens the grid with the kind + genre, sorted Popular."""
+    with ThreadPoolExecutor(max_workers=len(BROWSE_KINDS)) as pool:
+        got = list(pool.map(genres, [k for k, _ in BROWSE_KINDS]))
+    return [{"kind": k, "label": label,
+             "genres": [{"name": g["name"], "href": see_href({"kind": k, "sort": "popular", "genre": g["id"]})}
+                        for g in gl]}
+            for (k, label), gl in zip(BROWSE_KINDS, got) if gl]
+
+
+def _id_names(items) -> list[tuple[int, str]]:
+    """[{id, name}] (or TMDB's {results: [...]}) -> [(id, name)], bad entries dropped."""
+    if isinstance(items, dict):
+        items = items.get("results") or items.get("keywords")
+    out = []
+    for k in items if isinstance(items, list) else []:
+        if isinstance(k, dict) and isinstance(k.get("id"), int) and not isinstance(k.get("id"), bool) and k["id"] > 0 \
+                and str(k.get("name") or "").strip():
+            out.append((k["id"], str(k["name"]).strip()[:60]))
+    return out
+
+
+def _title_keywords(kind: str, tmdb_id: int) -> list[tuple[int, str]]:
+    """One title's TMDB keywords from Seerr's details read (kept KEYWORD_TTL on disk, the title page's meta file)."""
+    body = meta_get(f"/api/v1/{kind}/{tmdb_id}", ttl=KEYWORD_TTL, timeout=SHELF_TIMEOUT)
+    return _id_names(body.get("keywords")) if isinstance(body, dict) else []
+
+
+def keyword_name(kid: int) -> str | None:
+    """A keyword's name (Seerr /keyword/{id}, kept KEYWORD_TTL); None when it can't be read."""
+    body = meta_get(f"/api/v1/keyword/{kid}", ttl=KEYWORD_TTL, timeout=SHELF_TIMEOUT)
+    name = str(body.get("name") or "").strip()[:60] if isinstance(body, dict) else ""
+    return name or None
+
+
+def topic_href(f: dict, kid: int | None) -> str:
+    """A topic chip's grid: the kind, sort and Hide kept; the other filters dropped (the topic is the page)."""
+    sort = "popular" if f["sort"] == "trending" else f["sort"]
+    return see_href({"kind": f["kind"], "sort": sort, "hide": f["hide"], "keyword": kid})
+
+
+def related_topics(f: dict, deadline: float = TOPIC_DEADLINE_S) -> list[dict]:
+    """JY-303 p2: up to TOPIC_MAX TMDB keywords over the grid's first page - [{id, name, href}], most titles first
+    (ties in page order), the active keyword left out. Past `deadline` the titles read so far count; [] when the page
+    or every read fails."""
+    rows, _ = see_page(f, 1)
+    rows = [r for r in rows or [] if r["kind"] in ("movie", "tv")]
+    if not rows:
+        return []
+    pool = ThreadPoolExecutor(max_workers=TOPIC_WORKERS)
+    futs = [pool.submit(_title_keywords, r["kind"], r["tmdb_id"]) for r in rows]
+    done, _ = wait(futs, timeout=deadline)
+    pool.shutdown(wait=False, cancel_futures=True)   # a hung read never holds the part past the deadline
+    if len(done) < len(futs):
+        log.warning("related topics: deadline reached, %d of %d titles read", len(done), len(futs))
+    count: dict[int, int] = {}
+    names: dict[int, str] = {}
+    for fut in futs:   # page order, so a tie keeps the order the keywords first appear in
+        if fut not in done or fut.exception() is not None:
+            continue
+        for kid, name in dict(fut.result()).items():   # a keyword counts once per title
+            count[kid] = count.get(kid, 0) + 1
+            names.setdefault(kid, name)
+    order = {kid: i for i, kid in enumerate(names)}
+    top = sorted((k for k in count if k != f.get("keyword")), key=lambda k: (-count[k], order[k]))[:TOPIC_MAX]
+    return [{"id": k, "name": names[k], "href": topic_href(f, k)} for k in top]
 
 
 def _see_ctx(request: Request, f: dict, first: int, last: int, on_media: bool) -> dict:
     """The grid page's context: pages first..last (read in parallel, de-duplicated), the filter lists, Load more."""
     ctx = {"f": f, "kinds": KINDS, "sorts": SORTS, "genres": None, "services": None, "rows": [], "note": None,
            "next_href": None, "more_href": None, "first": first, "on_media": on_media, "wl_keys": None,
-           "title": see_title(f), "years": list(range(date.today().year + 2, 1949, -1))}
+           "title": see_title(f), "years": list(range(date.today().year + 2, 1949, -1)), "topic": None,
+           "topics_href": None}
     if not _creds():
         return ctx
     # review fix: the two provider lists and the genre list are read side by side (a hung Seerr costs one 3 s wait
     # before the pages, not three); services() then finds both lists cached (or their failure remembered, E1)
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         lists = [pool.submit(_provider_list, k) for k in ("movies", "tv")]
         gl = pool.submit(genres, f["kind"]) if f["kind"] else None
+        kw = pool.submit(keyword_name, f["keyword"]) if f["keyword"] else None   # JY-303 p2: the active topic's name
         for x in lists:
             x.result()
         ctx["genres"] = gl.result() if gl else None
+        tname = (kw.result() or "Topic") if kw else None
     ctx["services"] = services()
     if f["genre"] and ctx["genres"] is not None and f["genre"] not in {g["id"] for g in ctx["genres"]}:
         f["genre"] = None
@@ -788,7 +880,11 @@ def _see_ctx(request: Request, f: dict, first: int, last: int, on_media: bool) -
     gname = next((g["name"] for g in ctx["genres"] or [] if g["id"] == f["genre"]), None)
     sname = next((s["name"] for s in ctx["services"] or [] if s["id"] == f["service"]),
                  "Streaming service" if f["service"] else None)
-    ctx["title"] = see_title(f, gname, sname)
+    ctx["title"] = see_title(f, gname, sname, tname)
+    if tname:   # JY-303 p2: the active topic chip and its clear
+        ctx["topic"] = {"name": tname, "clear_href": see_href({**f, "keyword": None})}
+    if rows:   # JY-303 p2: Related topics, loaded after the grid draws
+        ctx["topics_href"] = see_href(f) + "&part=topics"
     if on_media:   # friends: their request state on every poster (hub.media_guest_requests), no watchlist
         from hub import media_guest_requests as mgr
         ctx["rows"] = mgr.with_states(rows, mgr.viewer_mine())
@@ -802,17 +898,37 @@ def _see_ctx(request: Request, f: dict, first: int, last: int, on_media: bool) -
 @router.get(SEE_ALL, response_class=HTMLResponse)
 def see_all_page(request: Request, shelf: str = "", kind: str | None = None, sort: str | None = None,
                  genre: str | None = None, year: str | None = None, service: str | None = None, hide: str = "",
-                 page: str = "1", more: str = ""):
-    """The See all grid (JY-303). `more=1` from htmx = Load more: that one page's posters and the next button only."""
-    f = see_filters(shelf, kind, sort, genre, year, service, hide)
+                 page: str = "1", more: str = "", keyword: str | None = None, part: str = ""):
+    """The See all grid (JY-303). `more=1` from htmx = Load more: that one page's posters and the next button only.
+    `part=topics` from htmx (phase 2) = the Related topics row, "" when there is none."""
+    f = see_filters(shelf, kind, sort, genre, year, service, hide, keyword=keyword)
     n = min(_posint(page) or 1, MAX_PAGE)
     on_media = guest.is_media()
-    if more == "1" and is_htmx(request):
+    if (more == "1" or part == "topics") and is_htmx(request):
         if shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, shell.get_snapshots(request=request),
                                     detail=DISCOVER_DETAIL) is None:
             return shell.not_found_page(request)
+        if part == "topics":
+            return _topics_part(request, f)
         return _partial(request, "_discover_all_cells.html", **_see_ctx(request, f, n, n, on_media))
     return _page(request, "media_discover_all.html", lambda: _see_ctx(request, f, 1, min(n, FULL_PAGES), on_media))
+
+
+def _topics_part(request: Request, f: dict) -> HTMLResponse:
+    """JY-303 p2: the deferred Related topics row - the active topic (with its clear) and the related chips; "" (the
+    placeholder goes) when there is neither, Seerr is unset / down, or on any failure."""
+    if not _creds():
+        return HTMLResponse("")
+    try:
+        topics = related_topics(f)
+        topic = {"name": keyword_name(f["keyword"]) or "Topic", "clear_href": see_href({**f, "keyword": None})} \
+            if f["keyword"] else None
+    except Exception as exc:  # the part never fails the page
+        log.warning("related topics failed: %s", type(exc).__name__)
+        return HTMLResponse("")
+    if not topics and not topic:
+        return HTMLResponse("")
+    return _partial(request, "_discover_topics.html", topics=topics, topic=topic, topics_href=None)
 
 
 # ---- Title page + request ----

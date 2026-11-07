@@ -14,6 +14,16 @@
   {% if n.runtime or film.official %}<p class="metaline tv-factline">{% if n.runtime %}Runtime {{ n.runtime }}{% endif %}{% if n.runtime and film.official %}<span class="sep"> · </span>{% endif %}{% if film.official %}Rated {{ film.official }}{% endif %}</p>{% endif %}
 </section>
 {% endif %}
+{# JY-284 (B. 2026-11-06): B.'s own TV session only (media_film.tv_file_owner, server-side) - a Files row under Scores:
+   the format badges, then Size · Sound · Subtitles. Never the file name or the release group. #}
+{% if film.tv_file %}{% set tfr = film.tv_file %}
+<section class="sec tv-extras tv-files" aria-label="Files">
+  <h2 class="seclabel">Files</h2>
+  {% with badges = tfr.badges %}{% include "_file_strip.html" %}{% endwith %}
+  {% set bits = [("Size", tfr.size), ("Sound", tfr.sound), ("Subtitles", tfr.subs)]|selectattr(1)|list %}
+  {% if bits %}<p class="metaline tv-factline">{% for k, v in bits %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}<span class="microlabel">{{ k }}</span>{{ v }}{% endfor %}</p>{% endif %}
+</section>
+{% endif %}
 {% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
 {% if film.episode and film.crew_ep %}{% with crew_rows = film.crew_ep %}{% include "_tv_crew.html" %}{% endwith %}
 {% else %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}

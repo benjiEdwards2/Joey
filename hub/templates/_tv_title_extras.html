@@ -4,6 +4,8 @@
    links on the TV), crew as links to the person pages, then the film series as a poster shelf. Each deferred part keeps
    its one placeholder (fp-<name>), so the page's part request fills it here; the partials draw their TV form. #}
 {% from "_film_wait.html" import wait %}
+{# JY-285 (option C): "More from <name>" per maker, under the cast and above Scores - loaded after the page draws #}
+{% if film.tmdb and film.kind in ("movie", "tv") %}<div class="tvmakers-wait" hidden hx-get="/media/title/{{ film.kind }}/{{ film.tmdb }}/makers" hx-trigger="load" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false"></div>{% endif %}
 {% from "_film_macros.html" import sp with context %}
 {% set n = film.numbers %}
 {% set any_score = n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}

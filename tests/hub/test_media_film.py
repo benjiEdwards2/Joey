@@ -505,7 +505,8 @@ def test_film_hero_has_director_and_writer_chips_linking_to_person_pages(env):
         {"id": 78, "name": "Wren Writer", "job": "Screenplay"}, {"id": 79, "name": "Cy Camera", "job": "Director of Photography"}]}}
     with client:
         h = hero(main_of(whole(client, "/media/title/movie/603")))
-    assert chips(h) == [("Director", "Guy Ritchie", "/media/person/77"), ("Writer", "Wren Writer", "/media/person/78")]
+    assert chips(h) == [("Director", "Guy Ritchie", "/media/person/77?from=title#land"),
+                        ("Writer", "Wren Writer", "/media/person/78?from=title#land")]
     assert '<div class="makers">' not in h and "makercard" not in h
 
 
@@ -513,7 +514,7 @@ def test_no_tmdb_id_falls_back_to_the_person_find_link(env):
     client, _ = env()                                   # FILM's director has no id
     with client:
         found = chips(hero(main_of(client.get("/media/title/movie/603").text)))
-    assert ("Director", "Dee Director", "/media/person/find?name=Dee%20Director") in found
+    assert ("Director", "Dee Director", "/media/person/find?name=Dee%20Director&amp;from=title#land") in found
 
 
 def test_series_says_created_by_with_up_to_four_chips(env):
@@ -526,8 +527,8 @@ def test_series_says_created_by_with_up_to_four_chips(env):
     with client:
         h = hero(main_of(whole(client, "/media/title/tv/100")))
     found = chips(h)
-    assert len(found) == 4 and found[0] == ("Creator", "Maker A Person", "/media/person/10")
-    assert found[1] == ("Creator", "Maker B Person", "/media/person/11")
+    assert len(found) == 4 and found[0] == ("Creator", "Maker A Person", "/media/person/10?from=title#land")
+    assert found[1] == ("Creator", "Maker B Person", "/media/person/11?from=title#land")
     assert "makerpic" not in h and "makercard" not in h
 
 
@@ -541,8 +542,8 @@ def test_jellyfin_director_without_jellyseerr_still_gets_a_chip(env, monkeypatch
     both.fail_seerr = True
     with client:
         found = chips(hero(main_of(client.get("/media/item/mov1").text)))
-    assert found == [("Director", "Dee Director", "/media/person/find?name=Dee%20Director"),
-                     ("Writer", "Wes Words", "/media/person/find?name=Wes%20Words")]
+    assert found == [("Director", "Dee Director", "/media/person/find?name=Dee%20Director&amp;from=title#land"),
+                     ("Writer", "Wes Words", "/media/person/find?name=Wes%20Words&amp;from=title#land")]
 
 
 def test_chips_sit_under_the_facts_line_before_the_status_and_the_action_row(env):

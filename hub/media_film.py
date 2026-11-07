@@ -796,14 +796,21 @@ def _makers(raw: dict, people: list[dict], kind: str) -> list[dict]:
 
 def _chips(raw: dict, people: list[dict]) -> list[dict]:
     """JY-280: a film's Director and Writer chips - TMDB's crew (with person ids) per role, else Jellyfin's People for
-    that role (a name search link, no id)."""
+    that role (a name search link, no id). JY-285 (q-5): the same person directing and writing is ONE chip,
+    "Director and Writer" (matched by TMDB id, else by name when neither has one)."""
     tmdb = {r["role"]: r["people"] for r in crew_for(raw, "movie")}
     out = []
     for role in ("Director", "Writer"):
         found = tmdb.get(role) or [{"name": str(p["name"])[:80], "id": None}
                                    for p in people or [] if p.get("type") == role and p.get("name")][:CREW_NAMES]
-        out += [{"role": role, "name": m["name"],
-                 "href": f"/media/person/{m['id']}" if m["id"] else person_find_href(m["name"])} for m in found]
+        for m in found:
+            same = next((c for c in out if c["role"] == "Director" and role == "Writer"
+                         and (c["id"] == m["id"] if c["id"] or m["id"] else c["name"] == m["name"])), None)
+            if same:
+                same["role"] = "Director and Writer"
+                continue
+            out.append({"role": role, "name": m["name"], "id": m["id"],
+                        "href": f"/media/person/{m['id']}" if m["id"] else person_find_href(m["name"])})
     return out
 
 

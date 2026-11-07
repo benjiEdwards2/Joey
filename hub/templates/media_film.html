@@ -16,7 +16,7 @@
 {% import "_rate.html" as rate %}
 {% import "_title_file.html" as tf %}
 {% from "_film_wait.html" import wait %}
-{% from "_film_macros.html" import makercards with context %}
+{% from "_film_macros.html" import makercards, landing with context %}
 {# TV episode flow (WP-E2, 2026-10-16): `film.ratings` / `film.nav` / `film.guests` / `film.crew_ep` (contract section 2).
    Each piece is guarded, so a page without them renders exactly as before. #}
 {% import "_episode_flow.html" as ef %}
@@ -89,7 +89,7 @@
         {% endif %}
         {# JY-317 (Plan 2 phase 2.5): a show / season page off the TV takes the film's maker chips too (Creator, Director) #}
         {% set filmchips = film.kind in ("movie", "tv") and not tvm and not film.episode %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
-        {% if film.directors %}<div class="makerchips makers-directors">{% for m in film.directors %}<a class="chip makerchip" href="{{ '/media/person/' ~ m.id if m.id else '/media/person/find?name=' ~ (m.name|urlencode) }}"><span class="makerchip-role">Director</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}{% endif %}
+        {% if film.directors %}<div class="makerchips makers-directors">{% for m in film.directors %}<a class="chip makerchip" href="{{ landing('/media/person/' ~ m.id if m.id else '/media/person/find?name=' ~ (m.name|urlencode)) }}"><span class="makerchip-role">Director</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}{% endif %}
         {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% set synblock %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}{% endset %}{% if not film.episode %}{{ synblock }}{% endif %}
         {% if tvm %}
         {% if tvreq %}

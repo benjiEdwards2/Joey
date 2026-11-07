@@ -294,7 +294,7 @@ def test_created_by_row_follows_a_creator_as_a_tv_maker(son_env):
                 'value="/media/title/tv/100"><input type="hidden" name="name" value="Cass Creator">'
                 '<input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">'
                 'Follow Cass Creator</button></form>') in row
-        assert '<a class="chip makerchip" href="/media/person/77">' in row     # the chip (JY-317, was the card) stays the person link
+        assert '<a class="chip makerchip" href="/media/person/77?from=title#land">' in row     # the chip (JY-317, was the card) stays the person link
         assert "Follow No Id Writer" not in row                               # no TMDB id, nothing to follow
         r = client.post("/media/follow/person/77", data={"back": "/media/title/tv/100", "tv": "1"}, follow_redirects=False)
         assert r.headers["location"] == "/media/title/tv/100?follow=creator"

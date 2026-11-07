@@ -45,7 +45,7 @@ def test_film_facts_sit_below_the_cast_on_the_tv(rich):
     assert 'sp-name">TMDB' in facts and "sp-val" in facts               # the source's word and its number
     assert "Runtime" in facts
     prov = re.search(r'tv-providers.*?</section>', body, flags=re.S).group(0)
-    assert "Netflix" in prov and "Apple TV" in prov and "<a " not in prov   # words, no off-site links
+    assert 'alt="Netflix"' in prov and "<a " not in prov   # JY-286: streaming logos only (alt = name), no off-site links
     crew = re.search(r'tv-crew.*?</section>', body, flags=re.S).group(0)
     assert 'href="/media/person/21"' in crew and "Dee Director" in crew and "Wy Writer" in crew
     col = re.search(r'tv-collection.*?</section>', body, flags=re.S).group(0)

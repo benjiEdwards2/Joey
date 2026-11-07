@@ -657,6 +657,10 @@ html.tv .tv-extras .scorepill .sp-val, html.tv .tv-extras .scorepill .sp-name { 
 html.tv .tv-extras .scorepill .sp-val { font-weight: 700; color: var(--tv-t1); }
 html.tv .tv-extras .tv-factline { display: block; margin: .5rem 0 0; font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-extras .tv-factline .microlabel { margin-right: .5rem; }
+/* JY-286: where to watch as the streaming services' logos only (alt = the name), no link - 2.5rem (40 design px) tiles */
+html.tv .tv-providers .provlogos { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+html.tv .tv-providers .provlogo { display: inline-flex; }
+html.tv .tv-providers .prov-logo { width: 2.5rem; height: 2.5rem; border-radius: var(--tv-r); object-fit: cover; }
 html.tv .tv-crewlist { display: grid; gap: .5rem; margin: .5rem 0 0; }
 html.tv .tv-crewrow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .4375rem 0; }
 html.tv .tv-crewrole { flex: none; width: 7rem; font-size: 1.125rem; color: var(--tv-t4); }

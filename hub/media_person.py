@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
@@ -182,6 +183,88 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
             "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
 
 
+# JY-292 (option C, B. 2026-11-06; first slice = source A "often cast together"): the "If you like them you may like"
+# shelf. The cast of the person's top acting titles (Seerr title bodies through the 6 h meta cache, paced only when a
+# read is cold), co-stars from each title's top billing who share 2+ of those titles. A deferred part: never on render.
+LIKE_TITLES, LIKE_BILLED, LIKE_MIN, LIKE_MAX, LIKE_PAUSE = 10, 15, 2, 12, 0.2
+LIKE_DEADLINE_S = 12   # one wall-clock budget for the part's reads: a hung Seerr cannot stall it 10 x 8 s
+NOT_ACTING = {10763, 10764, 10767}   # TV news, reality, talk: guest spots there are not "cast together"
+SELF_RE = re.compile(r"^(self|himself|herself|themselves)\b", re.I)
+
+
+def _like_titles(credits) -> list[tuple[str, int, str]]:
+    """[(kind, tmdb_id, title)]: their acting credits minus bonus videos, talk / news / reality and "Self" roles, most
+    voted first (then id), at most LIKE_TITLES."""
+    got: dict[tuple, tuple] = {}
+    for c in ((credits.get("cast") if isinstance(credits, dict) else None) or []):
+        row = md._row(c) if isinstance(c, dict) else None
+        if not row or c.get("video") or NOT_ACTING & set(c.get("genreIds") or []) \
+                or SELF_RE.match(str(c.get("character") or "").strip()):
+            continue
+        try:
+            votes = int(c.get("voteCount") or 0)
+        except (TypeError, ValueError):
+            votes = 0
+        got.setdefault((row["kind"], row["tmdb_id"]), (votes, row["title"]))
+    top = sorted(got.items(), key=lambda kv: (-kv[1][0], kv[0][1]))[:LIKE_TITLES]
+    return [(k[0], k[1], v[1]) for k, v in top]
+
+
+def you_may_like(tmdb_id: int, pause: float = LIKE_PAUSE, deadline: float = LIKE_DEADLINE_S) -> list[dict]:
+    """[{id, name, ref, href, why, titles}] - co-stars ranked by titles shared, then billing, then name. [] when
+    Seerr is unset / down or nobody shares 2+ titles. Past `deadline` seconds no further title is read: the shelf is
+    built from what has been read so far."""
+    people: dict[int, dict] = {}
+    stop = time.monotonic() + deadline
+    for kind, tid, title in _like_titles(_cget(f"/api/v1/person/{tmdb_id}/combined_credits")):
+        if time.monotonic() >= stop:
+            log.warning("you-may-like: deadline reached, shelf from the titles read so far")
+            break
+        path = f"/api/v1/{kind}/{tid}"
+        cold = md.meta_peek(path) is md.MISSING
+        try:
+            body = md.meta_get(path)
+        except Exception as exc:   # one bad read never stops the shelf
+            log.warning("you-may-like read failed: %s", type(exc).__name__)
+            body = None
+        if cold and pause:
+            time.sleep(pause)
+        cast = ((body.get("credits") or {}).get("cast") if isinstance(body, dict) else None) or []
+        for pos, c in enumerate([c for c in cast if isinstance(c, dict)][:LIKE_BILLED]):
+            pid = c.get("id")
+            if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0 or pid == tmdb_id or not c.get("name"):
+                continue
+            p = people.setdefault(pid, {"id": pid, "name": str(c["name"])[:80], "ref": md._ref(c.get("profilePath")),
+                                        "titles": [], "kinds": set(), "billing": 0})
+            if title not in p["titles"]:
+                p["titles"].append(title)
+                p["kinds"].add(kind)
+                p["billing"] += pos
+    picked = sorted((p for p in people.values() if len(p["titles"]) >= LIKE_MIN),
+                    key=lambda p: (-len(p["titles"]), p["billing"], p["name"].casefold()))[:LIKE_MAX]
+    out = []
+    for p in picked:
+        n, kinds = len(p["titles"]), p["kinds"]
+        noun = "films" if kinds == {"movie"} else "shows" if kinds == {"tv"} else "titles"
+        out.append({"id": p["id"], "name": p["name"], "ref": p["ref"], "href": f"/media/person/{p['id']}",
+                    "why": f"Cast together in {n} {noun}",
+                    "titles": ", ".join(p["titles"][:3]) + (" …" if n > 3 else "")})
+    return out
+
+
+@router.get("/media/person/{person_id}/like", response_class=HTMLResponse)
+def person_like(request: Request, person_id: str):
+    """JY-292: the deferred "you may like" part; "" (the placeholder goes) when there is nothing or on any failure."""
+    if not ID_RE.match(person_id):
+        raise HTTPException(404, "No such person")
+    try:
+        like = you_may_like(int(person_id))
+    except Exception as exc:  # the part never fails the page
+        log.warning("you-may-like failed: %s", type(exc).__name__)
+        like = []
+    return md._partial(request, "_person_like.html", like=like) if like else HTMLResponse("")
+
+
 FIND_NAME_MAX = 100
 
 
@@ -229,9 +312,13 @@ def person_page(request: Request, person_id: str):
     try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
+        # JY-294: the carousel of their awarded works; a work's poster falls back to the same title in their credits
+        posters = {(r["kind"], r["tmdb_id"]): r["poster"] for f in ("shelf", "films", "series", "bonus", "shows")
+                   for r in person.get(f) or [] if r.get("poster")}
+        person["award_works"] = media_awards_pages.person_works(person["awards"], posters)
     except Exception as exc:  # the page never fails on the awards lookup
         log.warning("awards lookup failed: %s", type(exc).__name__)
-        person["awards"] = None
+        person["awards"], person["award_works"] = None, []
     try:
         row = media_follow.get("person", int(person_id))
     except Exception as exc:  # the page never fails on the follow lookup

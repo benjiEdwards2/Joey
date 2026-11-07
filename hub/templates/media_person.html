@@ -50,7 +50,19 @@
 <section class="sec" id="awards">
   <h2 class="seclabel">Awards</h2>
   <p class="metaline">{{ person.awards.head }}</p>
+  {# JY-294 (option A, B. 2026-11-06): one card per awarded work - poster with a gold "N won" / neutral "N nom" ribbon,
+     the award lines under it (Won / Nominated in words, not colour alone); the per-ceremony list folds underneath. #}
+  {% if person.award_works %}
+  <div class="carousel awworks">{% for w in person.award_works %}
+    <{{ "a" if w.href else "div" }} class="card-poster awwork"{% if w.href %} href="{{ w.href }}"{% endif %}><span class="card-pic{{ ' is-won' if w.won }}">{{ poster(w.poster, w.title, 240) }}<span class="poster-tag awribbon{{ ' is-won' if w.won }}">{{ w.ribbon }}</span></span><span class="row-title">{{ w.title }}</span>
+    {% for c in w.lines %}<span class="awwork-line{{ ' is-won' if c.won }}">{{ c.text }} <span class="awwork-word">{{ "Won" if c.won else "Nominated" }}</span></span>{% endfor %}{% if w.more %}<span class="awwork-line awwork-more">+{{ w.more }} more</span>{% endif %}</{{ "a" if w.href else "div" }}>
+  {% endfor %}</div>
+  <details class="showmore awall"><summary>All awards by ceremony</summary>
   <div class="awgroups">{% for g in person.awards.groups %}{{ aw.person_group(g) }}{% endfor %}</div>
+  </details>
+  {% else %}
+  <div class="awgroups">{% for g in person.awards.groups %}{{ aw.person_group(g) }}{% endfor %}</div>
+  {% endif %}
 </section>
 {% endif %}
 {% if person.shelf %}
@@ -62,6 +74,8 @@
 <p class="empty">Nothing with {{ person.name }} is on Joey yet.</p>
 {% endif %}
 {% if not tvf %}
+{# JY-292: "If you like them you may like" - a deferred part, so the page itself makes no new upstream call #}
+<div class="personlike-wait" hidden hx-get="/media/person/{{ person.tmdb }}/like" hx-trigger="load" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false"></div>
 {# JY-280: their writing credits (writer jobs only), where the film page's Writer chip lands #}
 {% if person.writing %}
 <section class="sec personwriting">

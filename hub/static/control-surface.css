@@ -1238,6 +1238,20 @@ a.awline:hover { background: var(--soft); }
   overflow-wrap: anywhere; }
 .awchip.is-won { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); font-weight: 600; }
 .awchips .row-meta { min-width: 0; }
+/* JY-294 (option A): the person page's awarded-works carousel - a ribbon over the poster (gold "N won", neutral grey
+   "N nom"), the award lines under the title (gold = won; each line also says Won / Nominated to a screen reader), and
+   the per-ceremony list folded under it. Cards a little wider than a poster shelf so a category fits on two lines. */
+.carousel.awworks { margin-bottom: 8px; }
+.carousel.awworks > * { flex-basis: 136px; width: 136px; }
+@media (min-width: 640px) { .carousel.awworks > * { flex-basis: 168px; width: 168px; } }
+.poster-tag.awribbon { background: var(--poster-badge-bg); color: var(--text-2); box-shadow: 0 0 0 1px var(--line); }
+.poster-tag.awribbon.is-won { background: var(--gold); color: var(--zinc-950); box-shadow: none; }
+.awwork-line { display: block; margin-top: 3px; font-size: 11px; line-height: 1.3; color: var(--text-4); overflow-wrap: anywhere; }
+.awwork-line.is-won { color: var(--gold); font-weight: 600; }
+.awwork-more { color: var(--text-5); }
+.awwork-word { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.awwork-line:not(.is-won) .awwork-word { color: var(--text-5); }
+.awall > summary { margin-top: 4px; }
 /* F2 fast item pages (2026-10-12): a film-page section waiting on an upstream read sits in a .fpart placeholder (it adds
    no box: its content lays out as the section itself would); the page's one part request swaps it out of band. The
    waiting score pill and shelf say "Loading" in the dim meta colour; the shelf keeps a poster row's height. */
@@ -1807,6 +1821,13 @@ html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ra
    (about 8 across the 784 px main column at 1440, beside the scores column); the name on up to two lines, the role on one. */
 html:not(.tv) .castsec.casttiles .castname { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 html:not(.tv) .castsec.casttiles .castrole { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* JY-292: the person page's "you may like" tiles carry a reason line and the shared titles (two lines each), so a
+   little wider; .castsec.personlike matches the cast tiles' one-line .castrole rule and comes later, so the lines wrap */
+html:not(.tv) .castsec.personlike.casttiles .castcard { flex-basis: calc((100% - 32px) / 2.5); }
+@media (min-width: 640px) { html:not(.tv) .castsec.personlike.casttiles .castcard { flex-basis: 128px; } }
+html:not(.tv) .castsec.personlike .likewhy, html:not(.tv) .castsec.personlike .liketitles { white-space: normal;
+  overflow: hidden; text-overflow: clip; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+html:not(.tv) .castsec.personlike .likewhy { color: var(--text-3); }
 @media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 88px; } }
 @media (max-width: 1024px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: min(64vh, 720px); }
@@ -1838,6 +1859,7 @@ html:not(.tv) .filmcol-side .scorepill { border-radius: 6px; }
 /* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
 @media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 104px; } }
 @media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 120px; } }
+@media (min-width: 1920px) { html:not(.tv) .castsec.personlike.casttiles .castcard { flex-basis: 144px; } }   /* JY-292 */
 /* JY-304 option C (B. 2026-11-04, every .carousel shelf off the TV): a scroll cue. (1) Half a card always peeks at the
    right edge - each width shows N and a half cards, never smaller than the old fixed cards (104 / 144 / 184 / 216 px; if the
    floor wins the peek is whatever the row leaves) (3.5 phone, 5.5 from 640, 6.5 from 1200, 9.5 from 1920, 11.5 from

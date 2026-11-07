@@ -1,6 +1,6 @@
 # JY-292 + JY-294 Person page: awards carousel and "you may like" shelf
 
-Status: building (B. 2026-11-06 picker: PUSH; recs A + C on defaults)
+Status: shipped (#332 9304298, live 1c8b37e 2026-11-07; Sweep 38 Accept)
 Size: M
 Live risk: none (no write; JY-292 adds cached Seerr reads in a deferred part, never on the page render)
 Area: `hub/media_person.py`, `hub/media_awards_pages.py`, `hub/templates/media_person.html`, `hub/templates/_person_like.html`, `hub/static/control-surface.css`, `hub/guest.py` (one allowlist line for the new part route), `tests/hub/`

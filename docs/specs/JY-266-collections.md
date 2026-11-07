@@ -1,6 +1,6 @@
 # JY-266 Collections page (franchise grid)
 
-Status: building (B. 2026-11-06 picker: PUSH; rec A on defaults)
+Status: P1-P3 shipped (#335 1c8b37e, live 1c8b37e 2026-11-07; Sweep 38 Accept)
 Size: M (three phases, S/M)
 Live risk: low (read-only pages; the background pass reads Seerr; the one write is a request through the existing
 Seerr request path)

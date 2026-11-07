@@ -1,6 +1,6 @@
 # JY-284 File information: a File chip in the hero (owner only) + a TV Files row
 
-Status: building (B. 2026-11-06 picker: PUSH; rec B on defaults)
+Status: shipped (#336 d87ca31, replacing auto-closed #334; live 1c8b37e 2026-11-07; Sweep 38 Accept)
 Size: M (S web chip, S TV row, S TV gate)
 Live risk: none (templates, CSS and one page-data key; no store change, no new upstream call)
 Area: `hub/templates/_title_file.html`, `hub/templates/media_film.html` (hero row; drawer calls removed), `hub/templates/_tv_title_extras.html` (Files row), `hub/media_film.py` (`tv_file_owner`, `tv_file_row`, `film.tv_file`), `hub/static/control-surface.css` (popover; `.filedrawer` rules removed), `hub/static/tv.css` (Files row), `tests/hub/`

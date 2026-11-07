@@ -1,6 +1,6 @@
 # JY-303 Discover "See all": a full grid with filters and Load more
 
-Status: building, phase 1 (B. 2026-11-06 picker: PUSH; rec B phased, defaults)
+Status: phase 1 shipped (#333 d746293, live 1c8b37e 2026-11-07; Sweep 38 Accept); phase 2 not started
 Size: M
 Live risk: none (Seerr reads only, through the existing cached read path)
 Area: `hub/media_discover.py`, `hub/guest.py` (one allow-list row), the Discover templates (`media_discover.html`,

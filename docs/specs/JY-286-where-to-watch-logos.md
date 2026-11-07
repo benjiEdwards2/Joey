@@ -1,6 +1,6 @@
 # JY-286 Where to watch: logos only
 
-Status: built (2026-11-06). Audit: already shipped by #317/#328 - `_providers()` keeps each service's `logo` (`tmdb:` ref from Seerr's `logoPath`), and the movie, show and season web pages draw the streaming logos only (alt = name, JustWatch link, letters-tile fallback, none on guest) under the cast. Remaining, built here: the TV page (still drew every group's names as words) now draws the same streaming logos, no link; the web episode page (still drew name chips and a "Loading" heading) now draws the logo row; the old chips / Loading branches are gone.
+Status: shipped (#331 0d9630c, live 1c8b37e 2026-11-07; Sweep 38 Accept, TV streaming only per B.)
 Size: M (the page data has names only, no logos; see Data)
 Live risk: none
 Area: `hub/templates/_film_providers.html`, `_tv_title_extras.html`, `media_film.html` (cast / providers placement), `hub/media_film.py` (`_providers`), `hub/static/control-surface.css` (reuse `.prov-logo`), `tests/hub/`

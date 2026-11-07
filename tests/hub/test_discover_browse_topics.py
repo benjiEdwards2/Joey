@@ -245,7 +245,7 @@ def test_tv_css_styles_the_browse_and_topic_rows(friend):  # noqa: F811
             "font-size: 18px; color: var(--tv-t3); }") in css
     assert ("html.tv .browse-row .chip.tv-focus, html.tv .browse-row .chip:focus-visible, html.tv .topic-row "
             ".chip.tv-focus, html.tv .topic-row .chip:focus-visible { color: var(--tv-t1); }") in css
-    assert ("html.tv .topic-row .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; "
+    assert ("html.tv .topic-row .chip.on { background: var(--tv-t2); color: var(--tv-ink); border-color: transparent; "
             "font-weight: 600; }") in css
     assert "html.tv .seetopics { margin: 12px 0 0; }" in css
 

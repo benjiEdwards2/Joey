@@ -112,7 +112,7 @@ GUEST: tuple = (
     *_each("GET", "/media/discover", "/media/discover/search", "/media/discover/service/{provider_id}",
            "/media/discover/all"),   # JY-303: the See all grid (request chips, no watchlist)
     *_each("GET", "/media/title/{kind}/{tmdb_id}", "/media/title/{kind}/{tmdb_id}/part/{name}",
-           "/media/title/tv/{tmdb_id}/season/{n}"),
+           "/media/title/tv/{tmdb_id}/season/{n}", "/media/title/{kind}/{tmdb_id}/makers"),   # JY-285: read-only shelves
     *_each("GET", "/media/item/{jf_id}", "/media/item/{jf_id}/part/{name}", "/media/person/{person_id}",
            "/media/person/find", "/media/person/{person_id}/like"),   # JY-118: a name -> the person page (one Seerr search, media data only)
     *_each("GET", "/media/search", "/img/{ref:path}", "/healthz", "/static/{path:path}"),

@@ -13,10 +13,10 @@ from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from hub import media_discover as md, media_follow, media_item, media_person_photo, shell
+from hub import media_discover as md, media_film, media_follow, media_item, media_person_photo, shell
 from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_film import _cget
 
@@ -265,6 +265,78 @@ def person_like(request: Request, person_id: str):
     return md._partial(request, "_person_like.html", like=like) if like else HTMLResponse("")
 
 
+# JY-285 (option C on the TV app, B. 2026-11-06): "More from <name>" shelves under a TV title page's cast - one per
+# maker (a film's directors and writers, a show's creators), their directing / writing work, newest first, the title
+# itself left out. A deferred part (load trigger), never on render: the title body and each person's credits come
+# through the film page's 10 min cache, so a maker costs one credits read. One wall-clock budget, as JY-292's.
+MAKER_MAX, MAKER_PEOPLE, MAKER_DEADLINE_S = 12, 4, 12
+MAKER_DEPTS = ("Directing", "Writing")
+
+
+def _makers_of(raw, kind: str) -> list[dict]:
+    """[{id, name}]: a film's directors then writers (one entry when the same person does both), a show's creators -
+    those with a TMDB id only, at most MAKER_PEOPLE."""
+    if not isinstance(raw, dict):
+        return []
+    if kind == "tv":
+        found = [c for c in raw.get("createdBy") or [] if isinstance(c, dict)]
+    else:
+        roles = {r["role"]: r["people"] for r in media_film.crew_for(raw, "movie")}
+        found = (roles.get("Director") or []) + (roles.get("Writer") or [])
+    out: dict[int, dict] = {}
+    for c in found:
+        pid = media_film._pid(c.get("id"))
+        if pid and c.get("name"):
+            out.setdefault(pid, {"id": pid, "name": str(c["name"])[:80]})
+    return list(out.values())[:MAKER_PEOPLE]
+
+
+def _maker_rows(credits, lib: dict[str, str], skip: tuple) -> list[dict]:
+    """Their directing / writing titles (films and shows together), newest first, minus `skip` (the page's own title)
+    and the JY-293 "bonus" tier (featurettes, unreleased and barely-voted titles); at most MAKER_MAX."""
+    crew = (credits.get("crew") if isinstance(credits, dict) else None) or []
+    mine = [c for c in crew if isinstance(c, dict)
+            and (c.get("department") in MAKER_DEPTS or c.get("job") in ("Director", "Creator", *WRITER_JOBS))]
+    rows = [r for r in _credits({"crew": mine}, lib) if r["tier"] != "bonus" and (r["kind"], r["tmdb_id"]) != skip]
+    rows.sort(key=lambda r: r["date"], reverse=True)
+    return rows[:MAKER_MAX]
+
+
+def maker_shelves(kind: str, tmdb_id: int, snaps=None, deadline: float = MAKER_DEADLINE_S) -> list[dict]:
+    """[{name, rows}] - one shelf per maker with work to show. [] when Seerr is unset / down or nobody has any. Past
+    `deadline` seconds no further person is read."""
+    stop = time.monotonic() + deadline
+    makers = _makers_of(_cget(f"/api/v1/{kind}/{tmdb_id}"), kind)
+    if not makers:
+        return []
+    snaps = shell.get_snapshots() if snaps is None else snaps
+    lib = _library((shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps) or {}).get("data") or {})
+    out = []
+    for m in makers:
+        if time.monotonic() >= stop:
+            log.warning("maker shelves: deadline reached, shelves from the people read so far")
+            break
+        rows = _maker_rows(_cget(f"/api/v1/person/{m['id']}/combined_credits"), lib, (kind, tmdb_id))
+        if rows:
+            out.append({"name": m["name"], "rows": rows})
+    return out
+
+
+@router.get("/media/title/{kind}/{tmdb_id}/makers", response_class=HTMLResponse)
+def title_makers(request: Request, kind: str, tmdb_id: str):
+    """JY-285: the TV title page's deferred "More from <name>" shelves; "" (the placeholder goes) when there is nothing
+    or on any failure. Friends get the same read-only shelves."""
+    kind = md._kind(kind)
+    if not ID_RE.match(tmdb_id):
+        raise HTTPException(404, "No such title")
+    try:
+        shelves = maker_shelves(kind, int(tmdb_id), shell.get_snapshots(request=request))
+    except Exception as exc:  # the part never fails the page
+        log.warning("maker shelves failed: %s", type(exc).__name__)
+        shelves = []
+    return md._partial(request, "_tv_makers.html", shelves=shelves) if shelves else HTMLResponse("")
+
+
 FIND_NAME_MAX = 100
 
 
@@ -288,14 +360,16 @@ def find_person_id(name: str) -> int | None:
 
 
 @router.get("/media/person/find")
-def person_find(name: str = ""):
+def person_find(name: str = "", from_: str = Query("", alias="from")):
     """JY-118: where a guest or crew name goes. Declared before /media/person/{person_id} so "find" is not an id.
-    One lookup per tap -> the person page, else the Discover search for the name (303, never a 500). No name: 404."""
+    One lookup per tap -> the person page, else the Discover search for the name (303, never a 500). No name: 404.
+    JY-285: a maker chip's `from` flag rides along to the person page (its landing anchor)."""
     name = " ".join(name.split())[:FIND_NAME_MAX]
     if not name:
         raise HTTPException(404, "No such person")   # no name, nothing to look up (the guest crawl hits it bare)
     pid = find_person_id(name)
-    return RedirectResponse(f"/media/person/{pid}" if pid else f"{md.DISCOVER_DETAIL}?q={quote(name, safe='')}",
+    land = "?from=title" if from_ else ""
+    return RedirectResponse(f"/media/person/{pid}{land}" if pid else f"{md.DISCOVER_DETAIL}?q={quote(name, safe='')}",
                             status_code=303)
 
 
@@ -328,5 +402,8 @@ def person_page(request: Request, person_id: str):
     person["follow_tv"] = bool(row and row.get("dept") == media_follow.CREATOR)
     resp = shell.render_page(request, "media_person.html", {
         "status": shell.build_status(snaps), "src": src, "person": person, "show_first": SHOW_FIRST,
-        "follow_flash": media_follow.flash_text(request)})
+        "follow_flash": media_follow.flash_text(request),
+        # JY-285 (A): opened from a title's maker chip (?from=...#land) - "On server" carries the anchor, else Films
+        "land": ("server" if person.get("shelf") else "films" if person.get("films") else None)
+        if request.query_params.get("from") else None})
     return shell._maybe_set_cookie(resp, view, from_query)

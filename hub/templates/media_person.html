@@ -66,7 +66,7 @@
 </section>
 {% endif %}
 {% if person.shelf %}
-<section class="sec">
+<section class="sec"{% if land == "server" %} id="land"{% endif %}>
   <h2 class="seclabel">On server</h2>
   <div class="carousel">{% for r in person.shelf %}{{ card(r, r.item_href, false) }}{% endfor %}</div>
 </section>
@@ -84,7 +84,7 @@
 </section>
 {% endif %}
 {% for label, rows in (("Films", person.films), ("Film series", person.series), ("Bonus and other", person.bonus), ("TV", person.shows)) %}{% if rows %}
-<section class="sec">
+<section class="sec"{% if land == "films" and label == "Films" %} id="land"{% endif %}>
   <h2 class="seclabel">{{ label }}</h2>
   <div class="poster-grid">{% for r in rows[:show_first] %}{{ card(r, r.href, true) }}{% endfor %}</div>
   {% if rows | length > show_first %}

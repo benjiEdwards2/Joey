@@ -1,0 +1,12 @@
+{# JY-285 (option C, B. 2026-11-06): the TV title page's "More from <name>" shelves, a deferred part
+   (/media/title/{kind}/{id}/makers) under the cast. The kit's poster tiles (as the friends' "More on Joey" shelf); a title
+   on the server carries the kit's "On Joey" band (tvt.request, state lib). Read-only: no Request word, friends too. #}
+{% import "_tv_tile.html" as tvt %}
+{% for s in shelves %}
+<section class="sec tv-makers">
+  <h2 class="seclabel">More from {{ s.name }}</h2>
+  <div class="carousel tvt-row">
+    {% for r in s.rows %}{% set i = {"title": r.title, "sub": r.year, "poster": r.poster, "href": r.item_href or r.href, "state": "lib"} %}{% if r.on_server %}{{ tvt.request(i) }}{% else %}{{ tvt.poster(i) }}{% endif %}{% endfor %}
+  </div>
+</section>
+{% endfor %}

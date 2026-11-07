@@ -145,7 +145,7 @@ def test_filters_build_the_discover_read(paged):
     assert {k: v[0] for k, v in q.items()} == {
         "page": "1", "sortBy": "vote_average.desc", "voteCountGte": "200", "firstAirDateGte": "2024-01-01",
         "firstAirDateLte": "2024-12-31", "genre": "18", "watchRegion": "AU", "watchProviders": "8"}
-    assert "Top rated TV · Drama · 2024 · Streaming service" in page
+    assert "Drama TV · Top rated · 2024 · Streaming service" in page   # JY-303 p2: a genre heads the title
     assert '<option value="18" selected>Drama</option>' in page and '<option value="2024" selected>2024</option>' in page
 
 
